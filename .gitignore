@@ -9,6 +9,7 @@
 /.idea/deviceManager.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
+/.kotlin/
 .DS_Store
 /build
 /captures

@@ -15,8 +15,10 @@ data class WorkoutSet(
     val restBeforeSeconds: Long? = null,
     val restAfterSeconds: Long? = null,
     val notes: String? = null,
-    val volume: Double = weightValue * reps,
     val xpAwarded: Long = 0,
     val createdAt: Instant,
     val updatedAt: Instant
-)
+) {
+    val volume: Double
+        get() = weightValue * reps
+}

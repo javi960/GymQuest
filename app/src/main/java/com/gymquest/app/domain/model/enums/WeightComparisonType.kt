@@ -1,9 +1,10 @@
 package com.gymquest.app.domain.model.enums
 
 enum class WeightComparisonType {
-    DIRECT_WEIGHT,
-    MACHINE_SPECIFIC,
+    TOTAL_WEIGHT,
+    PER_DUMBBELL,
+    PER_SIDE,
     BODYWEIGHT,
-    ASSISTED_BODYWEIGHT,
-    NOT_COMPARABLE
+    ASSISTED_WEIGHT,
+    NOT_COMPARABLE_BETWEEN_MACHINES,
 }
