@@ -1,15 +1,11 @@
 package com.gymquest.app.feature.history
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,6 +18,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.gymquest.app.app.GymQuestApp
+import com.gymquest.app.core.ui.component.EmptyAdventureState
+import com.gymquest.app.core.ui.component.QuestAction
+import com.gymquest.app.core.ui.component.QuestButton
+import com.gymquest.app.core.ui.component.QuestPanel
+import com.gymquest.app.core.ui.component.QuestScreen
+import com.gymquest.app.core.ui.component.QuestSectionHeader
+import com.gymquest.app.core.ui.component.StatBadge
 import com.gymquest.app.domain.model.WorkoutSession
 import com.gymquest.app.domain.model.WorkoutSessionDetail
 
@@ -51,31 +54,41 @@ private fun HistoryContent(
     state: HistoryUiState,
     onSelectSession: (Long) -> Unit,
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        item {
-            Text("Historial", style = MaterialTheme.typography.headlineSmall)
-            Text("${state.sessions.size} sesiones guardadas")
-        }
-        state.selectedSessionDetail?.let { detail ->
+    QuestScreen {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
             item {
-                SessionDetailCard(detail = detail)
+                QuestPanel {
+                    QuestSectionHeader(
+                        title = "Historial",
+                        subtitle = "Registro cronologico de aventuras completadas y canceladas.",
+                    )
+                    StatBadge(label = "sesiones", value = state.sessions.size.toString())
+                }
             }
-        }
-        if (state.sessions.isEmpty()) {
-            item {
-                Text("Completa una sesion para verla aqui.")
+            state.selectedSessionDetail?.let { detail ->
+                item {
+                    SessionDetailCard(detail = detail)
+                }
             }
-        } else {
-            items(state.sessions, key = { it.id }) { session ->
-                SessionHistoryCard(
-                    session = session,
-                    selected = state.selectedSessionId == session.id,
-                    onSelectSession = onSelectSession,
-                )
+            if (state.sessions.isEmpty()) {
+                item {
+                    EmptyAdventureState(
+                        title = "Sin sesiones guardadas",
+                        description = "Completa una sesion para verla aqui con duracion, volumen y series.",
+                    )
+                }
+            } else {
+                items(state.sessions, key = { it.id }) { session ->
+                    SessionHistoryCard(
+                        session = session,
+                        selected = state.selectedSessionId == session.id,
+                        onSelectSession = onSelectSession,
+                    )
+                }
             }
         }
     }
@@ -87,14 +100,17 @@ private fun SessionHistoryCard(
     selected: Boolean,
     onSelectSession: (Long) -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(session.startedAt.toString(), style = MaterialTheme.typography.titleMedium)
-            Text("${session.status} · ${formatDuration(session.durationSeconds)}")
-            Button(onClick = { onSelectSession(session.id) }) {
-                Text(if (selected) "Detalle abierto" else "Ver detalle")
-            }
+    QuestPanel {
+        Text(session.startedAt.toString(), style = MaterialTheme.typography.titleMedium)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatBadge(label = "estado", value = session.status.name)
+            StatBadge(label = "duracion", value = formatDuration(session.durationSeconds))
         }
+        QuestButton(
+            text = if (selected) "Detalle abierto" else "Ver detalle",
+            action = QuestAction.OpenDetail,
+            onClick = { onSelectSession(session.id) },
+        )
     }
 }
 
@@ -102,13 +118,16 @@ private fun SessionHistoryCard(
 private fun SessionDetailCard(detail: WorkoutSessionDetail) {
     val setCount = detail.exercises.sumOf { it.sets.size }
     val totalVolume = detail.exercises.sumOf { exercise -> exercise.sets.sumOf { it.volume } }
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Detalle de sesion", style = MaterialTheme.typography.titleMedium)
-            Text("Ejercicios: ${detail.exercises.size}")
-            Text("Series: $setCount")
-            Text("Volumen: $totalVolume kg")
-            Text("Duracion: ${formatDuration(detail.session.durationSeconds)}")
+    QuestPanel {
+        QuestSectionHeader(
+            title = "Detalle de sesion",
+            subtitle = "Resumen escaneable antes de abrir vistas mas profundas.",
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatBadge(label = "ejercicios", value = detail.exercises.size.toString())
+            StatBadge(label = "series", value = setCount.toString())
+            StatBadge(label = "volumen", value = "$totalVolume kg")
+            StatBadge(label = "duracion", value = formatDuration(detail.session.durationSeconds))
         }
     }
 }

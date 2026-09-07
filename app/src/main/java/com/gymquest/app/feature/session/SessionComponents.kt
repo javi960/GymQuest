@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -14,7 +12,6 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,6 +23,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.gymquest.app.core.ui.component.QuestAction
+import com.gymquest.app.core.ui.component.QuestActionButton
+import com.gymquest.app.core.ui.component.QuestPanel
+import com.gymquest.app.core.ui.component.StatBadge
+import com.gymquest.app.core.ui.component.StatBadgeRow
+import com.gymquest.app.core.ui.theme.QuestTheme
 import com.gymquest.app.domain.model.WorkoutExerciseDetail
 import com.gymquest.app.domain.model.WorkoutSet
 import com.gymquest.app.domain.model.enums.SetType
@@ -42,17 +45,19 @@ fun WorkoutExerciseCard(
     onDeleteSet: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(exerciseName, style = MaterialTheme.typography.titleMedium)
-            SetHistoryList(
-                sets = exerciseDetail.sets,
-                onUpdateSet = onUpdateSet,
-                onDeleteSet = onDeleteSet,
-            )
-            RestTimerBar(lastSet = exerciseDetail.sets.lastOrNull())
-            SetInputRow(onSaveSet = onSaveSet)
+    QuestPanel(modifier = modifier.fillMaxWidth()) {
+        Text(exerciseName, style = MaterialTheme.typography.titleMedium)
+        StatBadgeRow {
+            StatBadge(label = "series", value = exerciseDetail.sets.size.toString())
+            StatBadge(label = "volumen", value = "${exerciseDetail.sets.sumOf { it.volume }} kg")
         }
+        SetHistoryList(
+            sets = exerciseDetail.sets,
+            onUpdateSet = onUpdateSet,
+            onDeleteSet = onDeleteSet,
+        )
+        RestTimerBar(lastSet = exerciseDetail.sets.lastOrNull())
+        SetInputRow(onSaveSet = onSaveSet)
     }
 }
 
@@ -88,7 +93,7 @@ private fun EditableSetRow(
     var repsText by remember(set.id, set.reps) { mutableStateOf(set.reps.toString()) }
     var setType by remember(set.id, set.setType) { mutableStateOf(set.setType) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("${set.setNumber}. ${set.setType.label()} · Descanso previo: ${set.restBeforeSeconds ?: 0}s")
+        Text("${set.setNumber}. ${set.setType.label()} - Descanso previo: ${set.restBeforeSeconds ?: 0}s")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = weightText,
@@ -107,12 +112,16 @@ private fun EditableSetRow(
         }
         SetTypeDropdown(selectedType = setType, onSelectedTypeChange = { setType = it })
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { onUpdateSet(set, weightText, repsText, setType) }) {
-                Text("Actualizar")
-            }
-            OutlinedButton(onClick = { onDeleteSet(set.id) }) {
-                Text("Eliminar")
-            }
+            QuestActionButton(
+                action = QuestAction.Save,
+                label = "Actualizar",
+                onClick = { onUpdateSet(set, weightText, repsText, setType) },
+            )
+            QuestActionButton(
+                action = QuestAction.Delete,
+                label = "Eliminar",
+                onClick = { onDeleteSet(set.id) },
+            )
         }
     }
 }
@@ -135,6 +144,8 @@ fun RestTimerBar(
         Text("Descanso actual: ${restSeconds}s", style = MaterialTheme.typography.bodySmall)
         LinearProgressIndicator(
             progress = { ((restSeconds % DEFAULT_REST_WINDOW_SECONDS).toFloat() / DEFAULT_REST_WINDOW_SECONDS) },
+            color = QuestTheme.tokens.colors.xpGold,
+            trackColor = QuestTheme.tokens.colors.panelBorder,
             modifier = Modifier.fillMaxWidth(),
         )
     }
@@ -168,15 +179,15 @@ fun SetInputRow(
             )
         }
         SetTypeDropdown(selectedType = setType, onSelectedTypeChange = { setType = it })
-        Button(
+        QuestActionButton(
+            action = QuestAction.Save,
+            label = "Guardar serie",
             onClick = {
                 onSaveSet(weightText, repsText, setType)
                 weightText = ""
                 repsText = ""
             },
-        ) {
-            Text("Guardar serie")
-        }
+        )
     }
 }
 
