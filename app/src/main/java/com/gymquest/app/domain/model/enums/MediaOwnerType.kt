@@ -8,6 +8,11 @@ enum class MediaOwnerType {
     MARTIAL_STYLE,
     MARTIAL_TECHNICAL_CONTENT,
     MARTIAL_TECHNIQUE,
+    MARTIAL_STANCE,
     MARTIAL_PRACTICE_SESSION,
     MARTIAL_PRACTICE_ITEM,
+    MARTIAL_CONTENT_STEP,
+    ;
+
+    companion object
 }

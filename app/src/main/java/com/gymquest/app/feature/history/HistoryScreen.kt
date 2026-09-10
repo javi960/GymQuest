@@ -24,9 +24,14 @@ import com.gymquest.app.core.ui.component.QuestButton
 import com.gymquest.app.core.ui.component.QuestPanel
 import com.gymquest.app.core.ui.component.QuestScreen
 import com.gymquest.app.core.ui.component.QuestSectionHeader
+import com.gymquest.app.core.ui.component.QuestDenseDataRow
+import com.gymquest.app.core.ui.component.QuestDenseMetric
 import com.gymquest.app.core.ui.component.StatBadge
 import com.gymquest.app.domain.model.WorkoutSession
 import com.gymquest.app.domain.model.WorkoutSessionDetail
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun HistoryScreen() {
@@ -46,13 +51,15 @@ fun HistoryScreen() {
     HistoryContent(
         state = state,
         onSelectSession = viewModel::selectSession,
+        onRetry = viewModel::retry,
     )
 }
 
 @Composable
-private fun HistoryContent(
+internal fun HistoryContent(
     state: HistoryUiState,
     onSelectSession: (Long) -> Unit,
+    onRetry: () -> Unit,
 ) {
     QuestScreen {
         LazyColumn(
@@ -68,6 +75,25 @@ private fun HistoryContent(
                     )
                     StatBadge(label = "sesiones", value = state.sessions.size.toString())
                 }
+            }
+            if (state.isLoading) {
+                item {
+                    EmptyAdventureState(
+                        title = "Cargando historial",
+                        description = "Buscando sesiones guardadas y sus detalles.",
+                    )
+                }
+                return@LazyColumn
+            }
+            state.errorMessage?.let { message ->
+                item {
+                    EmptyAdventureState(
+                        title = "No se pudo cargar el historial",
+                        description = message,
+                        action = { QuestButton(text = "Reintentar", onClick = onRetry) },
+                    )
+                }
+                return@LazyColumn
             }
             state.selectedSessionDetail?.let { detail ->
                 item {
@@ -101,7 +127,7 @@ private fun SessionHistoryCard(
     onSelectSession: (Long) -> Unit,
 ) {
     QuestPanel {
-        Text(session.startedAt.toString(), style = MaterialTheme.typography.titleMedium)
+        Text(formatHistoryDate(session.startedAt), style = MaterialTheme.typography.titleMedium)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             StatBadge(label = "estado", value = session.status.name)
             StatBadge(label = "duracion", value = formatDuration(session.durationSeconds))
@@ -129,6 +155,32 @@ private fun SessionDetailCard(detail: WorkoutSessionDetail) {
             StatBadge(label = "volumen", value = "$totalVolume kg")
             StatBadge(label = "duracion", value = formatDuration(detail.session.durationSeconds))
         }
+        detail.exercises.forEachIndexed { index, exercise ->
+            val records = exercise.sets
+            Text("Ejercicio ${index + 1}", style = MaterialTheme.typography.titleSmall)
+            if (records.isEmpty()) {
+                Text("Sin series registradas", style = MaterialTheme.typography.bodySmall)
+            } else {
+                records.sortedBy { it.setNumber }.forEach { set ->
+                    QuestDenseDataRow(
+                        metrics = listOf(
+                            QuestDenseMetric("Serie", set.setNumber.toString()),
+                            QuestDenseMetric("Peso", "${set.weightValue} kg"),
+                            QuestDenseMetric("Reps", set.reps.toString()),
+                            QuestDenseMetric("Descanso", set.restBeforeSeconds?.let(::formatDuration) ?: "—"),
+                            QuestDenseMetric("Volumen", "${set.volume} kg"),
+                        ),
+                    )
+                }
+                QuestDenseDataRow(
+                    metrics = listOf(
+                        QuestDenseMetric("Récord peso", "${records.maxOf { it.weightValue }} kg"),
+                        QuestDenseMetric("Récord reps", records.maxOf { it.reps }.toString()),
+                        QuestDenseMetric("Récord volumen", "${records.maxOf { it.volume }} kg"),
+                    ),
+                )
+            }
+        }
     }
 }
 
@@ -137,3 +189,11 @@ private fun formatDuration(seconds: Long): String {
     val remainingSeconds = seconds % 60
     return "${minutes}m ${remainingSeconds}s"
 }
+
+private fun formatHistoryDate(instant: java.time.Instant): String =
+    HISTORY_DATE_FORMATTER.format(instant.atZone(ZoneId.systemDefault())).uppercase(SPANISH_LOCALE)
+
+private val SPANISH_LOCALE: Locale = Locale.forLanguageTag("es-ES")
+
+private val HISTORY_DATE_FORMATTER: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("dd MMM", SPANISH_LOCALE)

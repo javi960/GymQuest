@@ -11,9 +11,8 @@ fun GymQuestTheme(
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val theme = when (preset) {
-        GymQuestThemePreset.ClassicQuest -> classicQuestTokens(darkTheme = darkTheme)
-    }
+    // Future presets intentionally fall back until their own token set is implemented.
+    val theme = classicQuestTokens(darkTheme = darkTheme)
 
     GymQuestThemeTokensProvider(tokens = theme.tokens) {
         MaterialTheme(

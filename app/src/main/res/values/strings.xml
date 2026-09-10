@@ -1,3 +1,28 @@
 <resources>
     <string name="app_name">GymQuest</string>
+    <string name="action_add">Añadir</string><string name="action_add_description">Añadir elemento</string>
+    <string name="action_edit">Editar</string><string name="action_edit_description">Editar elemento</string>
+    <string name="action_save">Guardar</string><string name="action_save_description">Guardar cambios</string>
+    <string name="action_export">Exportar</string><string name="action_export_description">Exportar copia de seguridad</string>
+    <string name="action_cancel">Cancelar</string><string name="action_cancel_description">Cancelar acción</string>
+    <string name="action_discard">Descartar</string><string name="action_discard_description">Cancelar sesión y descartar progreso</string>
+    <string name="action_delete">Eliminar</string><string name="action_delete_description">Eliminar elemento</string>
+    <string name="action_back">Volver</string><string name="action_back_description">Volver atrás</string>
+    <string name="action_search">Buscar</string><string name="action_search_description">Buscar</string>
+    <string name="action_filter">Filtrar</string><string name="action_filter_description">Filtrar resultados</string>
+    <string name="action_sort">Ordenar</string><string name="action_sort_description">Ordenar resultados</string>
+    <string name="action_open_detail">Ver detalle</string><string name="action_open_detail_description">Abrir detalle</string>
+    <string name="action_more">Más opciones</string><string name="action_more_description">Mostrar más opciones</string>
+    <string name="action_start">Iniciar</string><string name="action_start_description">Iniciar sesión</string>
+    <string name="action_pause">Pausar</string><string name="action_pause_description">Pausar</string>
+    <string name="action_resume">Reanudar</string><string name="action_resume_description">Reanudar</string>
+    <string name="action_finish">Completar</string><string name="action_finish_description">Completar sesión</string>
+    <string name="action_home">Inicio</string><string name="action_home_description">Ir a inicio</string>
+    <string name="action_session">Sesión</string><string name="action_session_description">Ir a sesión</string>
+    <string name="action_catalog">Catálogo</string><string name="action_catalog_description">Ir a catálogo</string>
+    <string name="action_history">Historial</string><string name="action_history_description">Ir a historial</string>
+    <string name="action_progress">Progreso</string><string name="action_progress_description">Ir a progreso</string>
+    <string name="action_dojo">Dojo</string><string name="action_dojo_description">Ir al dojo</string>
+    <string name="action_settings">Ajustes</string><string name="action_settings_description">Ir a ajustes</string>
+    <string name="action_martial_arts">Artes marciales</string><string name="action_martial_arts_description">Ir a artes marciales</string>
 </resources>

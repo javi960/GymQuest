@@ -9,6 +9,7 @@ import com.gymquest.app.domain.model.WorkoutSet
 import com.gymquest.app.domain.model.enums.SessionStatus
 import com.gymquest.app.domain.repository.WorkoutRepository
 import com.gymquest.app.domain.usecase.catalog.GetVariantLastPerformanceUseCase
+import com.gymquest.app.domain.usecase.progress.ObserveVariantHistoryUseCase
 import java.time.Instant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -83,6 +84,15 @@ class WorkoutSessionUseCasesTest {
     }
 
     @Test
+    fun observeVariantHistoryUseCase_exposesOnlyTheRequestedVariantHistory() = runBlocking {
+        val performance = VariantLastPerformance(workoutSession(id = 1), workoutExercise(), listOf(workoutSet()))
+        val repository = RecordingWorkoutRepository().apply { variantHistory = flowOf(listOf(performance)) }
+
+        assertEquals(listOf(performance), ObserveVariantHistoryUseCase(repository)(7).first())
+        assertEquals(7L, repository.variantHistoryVariantId)
+    }
+
+    @Test
     fun restUseCases_startRestAndResolveElapsedTimeForNextSet() {
         val savedSet = StartRestAfterSetUseCase()(workoutSet(), startedAt)
         val nextSetStartedAt = startedAt.plusSeconds(95)
@@ -131,6 +141,7 @@ class WorkoutSessionUseCasesTest {
         var updateSetResult: AppResult<Unit> = AppResult.Success(Unit)
         var deleteSetResult: AppResult<Unit> = AppResult.Success(Unit)
         var lastPerformanceResult: AppResult<VariantLastPerformance?> = AppResult.Success(null)
+        var variantHistory: Flow<List<VariantLastPerformance>> = flowOf(emptyList())
         var startedSession: WorkoutSession? = null
         var updatedSession: WorkoutSession? = null
         var addedExercise: WorkoutExercise? = null
@@ -138,6 +149,7 @@ class WorkoutSessionUseCasesTest {
         var updatedSet: WorkoutSet? = null
         var deletedSetId: Long? = null
         var lastPerformanceVariantId: Long? = null
+        var variantHistoryVariantId: Long? = null
 
         override fun observeActiveSession(): Flow<WorkoutSessionDetail?> = activeSession
         override fun observeSessionDetail(sessionId: Long): Flow<WorkoutSessionDetail?> = sessionDetail
@@ -147,6 +159,11 @@ class WorkoutSessionUseCasesTest {
         override suspend fun findVariantLastPerformance(variantId: Long): AppResult<VariantLastPerformance?> {
             lastPerformanceVariantId = variantId
             return lastPerformanceResult
+        }
+
+        override fun observeVariantHistory(variantId: Long): Flow<List<VariantLastPerformance>> {
+            variantHistoryVariantId = variantId
+            return variantHistory
         }
 
         override suspend fun startSession(session: WorkoutSession): AppResult<Long> {

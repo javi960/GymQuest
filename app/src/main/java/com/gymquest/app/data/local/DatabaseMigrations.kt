@@ -21,6 +21,93 @@ object DatabaseMigrations {
         }
     }
 
+    val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE media_files ADD COLUMN thumbnailUri TEXT")
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS martial_stances (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    martialStyleId INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    translation TEXT,
+                    description TEXT,
+                    notes TEXT,
+                    isArchived INTEGER NOT NULL,
+                    createdAt TEXT NOT NULL,
+                    updatedAt TEXT NOT NULL,
+                    FOREIGN KEY(martialStyleId) REFERENCES martial_styles(id)
+                )
+                """.trimIndent(),
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_martial_stances_martialStyleId ON martial_stances(martialStyleId)")
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS martial_content_steps (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    technicalContentId INTEGER NOT NULL,
+                    orderIndex INTEGER NOT NULL,
+                    stanceId INTEGER,
+                    techniqueId INTEGER,
+                    direction TEXT NOT NULL,
+                    side TEXT,
+                    movementType TEXT,
+                    displacement TEXT,
+                    turnDegrees INTEGER,
+                    angleDegrees INTEGER,
+                    description TEXT,
+                    hasKiai INTEGER NOT NULL,
+                    hasPause INTEGER NOT NULL,
+                    mediaFileId INTEGER,
+                    createdAt TEXT NOT NULL,
+                    updatedAt TEXT NOT NULL,
+                    FOREIGN KEY(technicalContentId) REFERENCES martial_technical_contents(id) ON DELETE CASCADE,
+                    FOREIGN KEY(stanceId) REFERENCES martial_stances(id),
+                    FOREIGN KEY(techniqueId) REFERENCES martial_techniques(id)
+                )
+                """.trimIndent(),
+            )
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_martial_content_steps_technicalContentId_orderIndex ON martial_content_steps(technicalContentId, orderIndex)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_martial_content_steps_stanceId ON martial_content_steps(stanceId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_martial_content_steps_techniqueId ON martial_content_steps(techniqueId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_martial_content_steps_mediaFileId ON martial_content_steps(mediaFileId)")
+        }
+    }
+
+    val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS martial_question_categories (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, name TEXT NOT NULL, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL)")
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_martial_question_categories_name ON martial_question_categories(name)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS martial_questions (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, categoryId INTEGER NOT NULL, prompt TEXT NOT NULL, explanation TEXT NOT NULL, difficulty TEXT NOT NULL, isArchived INTEGER NOT NULL, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL, FOREIGN KEY(categoryId) REFERENCES martial_question_categories(id))")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_martial_questions_categoryId ON martial_questions(categoryId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_martial_questions_isArchived ON martial_questions(isArchived)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS martial_answer_options (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, questionId INTEGER NOT NULL, text TEXT NOT NULL, isCorrect INTEGER NOT NULL, sortOrder INTEGER NOT NULL, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL, FOREIGN KEY(questionId) REFERENCES martial_questions(id) ON DELETE CASCADE)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_martial_answer_options_questionId ON martial_answer_options(questionId)")
+        }
+    }
+
+    val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS martial_belt_settings (id INTEGER NOT NULL PRIMARY KEY, belt TEXT NOT NULL, updatedAt TEXT NOT NULL)",
+            )
+        }
+    }
+
+    val MIGRATION_6_7 = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS workout_routines (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, name TEXT NOT NULL, notes TEXT, isArchived INTEGER NOT NULL, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS routine_days (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, routineId INTEGER NOT NULL, weekday TEXT NOT NULL, label TEXT, notes TEXT, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL, FOREIGN KEY(routineId) REFERENCES workout_routines(id) ON DELETE CASCADE)")
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_routine_days_routineId_weekday ON routine_days(routineId, weekday)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS routine_exercises (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, routineDayId INTEGER NOT NULL, exerciseVariantId INTEGER NOT NULL, gymMachineId INTEGER, orderIndex INTEGER NOT NULL, notes TEXT, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL, FOREIGN KEY(routineDayId) REFERENCES routine_days(id) ON DELETE CASCADE, FOREIGN KEY(exerciseVariantId) REFERENCES exercise_variants(id), FOREIGN KEY(gymMachineId) REFERENCES gym_machines(id))")
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_routine_exercises_routineDayId_orderIndex ON routine_exercises(routineDayId, orderIndex)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_routine_exercises_exerciseVariantId ON routine_exercises(exerciseVariantId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_routine_exercises_gymMachineId ON routine_exercises(gymMachineId)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS routine_planned_sets (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, routineExerciseId INTEGER NOT NULL, setNumber INTEGER NOT NULL, targetWeight REAL, targetReps INTEGER, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL, FOREIGN KEY(routineExerciseId) REFERENCES routine_exercises(id) ON DELETE CASCADE)")
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_routine_planned_sets_routineExerciseId_setNumber ON routine_planned_sets(routineExerciseId, setNumber)")
+        }
+    }
+
     val INTEGRITY_CALLBACK = object : RoomDatabase.Callback() {
         override fun onCreate(db: SupportSQLiteDatabase) {
             createIntegrityTriggers(db)

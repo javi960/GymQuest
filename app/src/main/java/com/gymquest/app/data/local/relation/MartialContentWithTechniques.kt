@@ -6,6 +6,7 @@ import androidx.room.Relation
 import com.gymquest.app.data.local.entity.MartialContentTechniqueCrossRef
 import com.gymquest.app.data.local.entity.MartialTechnicalContentEntity
 import com.gymquest.app.data.local.entity.MartialTechniqueEntity
+import com.gymquest.app.data.local.entity.MartialContentStepEntity
 
 data class MartialContentWithTechniques(
     @Embedded val technicalContent: MartialTechnicalContentEntity,
@@ -19,4 +20,6 @@ data class MartialContentWithTechniques(
         ),
     )
     val techniques: List<MartialTechniqueEntity>,
+    @Relation(parentColumn = "id", entityColumn = "technicalContentId")
+    val steps: List<MartialContentStepEntity>,
 )

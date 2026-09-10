@@ -7,6 +7,7 @@ import com.gymquest.app.domain.model.WorkoutSession
 import com.gymquest.app.domain.model.WorkoutSessionDetail
 import com.gymquest.app.domain.model.WorkoutSet
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 interface WorkoutRepository {
     fun observeActiveSession(): Flow<WorkoutSessionDetail?>
@@ -18,6 +19,10 @@ interface WorkoutRepository {
     suspend fun findSessionDetailById(sessionId: Long): AppResult<WorkoutSessionDetail?>
 
     suspend fun findVariantLastPerformance(variantId: Long): AppResult<VariantLastPerformance?>
+
+    fun observeVariantHistory(variantId: Long): Flow<List<VariantLastPerformance>> = flowOf(emptyList())
+
+    suspend fun findCompletedSessionDetails(): AppResult<List<WorkoutSessionDetail>> = AppResult.Success(emptyList())
 
     suspend fun startSession(session: WorkoutSession): AppResult<Long>
 

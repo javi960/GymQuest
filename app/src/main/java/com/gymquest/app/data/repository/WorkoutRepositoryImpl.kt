@@ -22,6 +22,7 @@ class WorkoutRepositoryImpl(
     private val database: GymQuestDatabase,
 ) : WorkoutRepository {
     private val workoutDao = database.workoutDao()
+    private val exerciseDao = database.exerciseDao()
 
     override fun observeActiveSession(): Flow<WorkoutSessionDetail?> =
         workoutDao.observeActiveSessionWithExercises().map { relation ->
@@ -59,6 +60,27 @@ class WorkoutRepositoryImpl(
             )
         }
 
+    override suspend fun findCompletedSessionDetails(): AppResult<List<WorkoutSessionDetail>> =
+        runStorageOperation {
+            workoutDao.getFinishedSessionsWithExercises().map(WorkoutMapper::toSessionDetail)
+        }
+
+    override fun observeVariantHistory(variantId: Long): Flow<List<VariantLastPerformance>> =
+        workoutDao.observeFinishedSessionsWithExercises().map { sessions ->
+            sessions.flatMap { relation ->
+                val session = WorkoutMapper.toDomain(relation.workoutSession)
+                relation.exercises
+                    .filter { it.workoutExercise.exerciseVariantId == variantId }
+                    .map { exerciseRelation ->
+                        VariantLastPerformance(
+                            session = session,
+                            exercise = WorkoutMapper.toDomain(exerciseRelation.workoutExercise),
+                            sets = exerciseRelation.sets.sortedBy { it.setNumber }.map(WorkoutMapper::toDomain),
+                        )
+                    }
+            }
+        }
+
     override suspend fun startSession(session: WorkoutSession): AppResult<Long> =
         validateSession(session, requireExistingId = false) {
             require(session.status == SessionStatus.ACTIVE) { "La nueva sesion debe empezar activa." }
@@ -71,20 +93,43 @@ class WorkoutRepositoryImpl(
 
     override suspend fun updateSession(session: WorkoutSession): AppResult<Unit> =
         validateSession(session, requireExistingId = true) {
-            if (workoutDao.updateSession(WorkoutMapper.toEntity(session)) == 0) {
-                throw NoSuchElementException("La sesion no existe.")
+            val updatedRows = if (session.status == SessionStatus.ACTIVE) {
+                workoutDao.updateSession(WorkoutMapper.toEntity(session))
+            } else {
+                val endedAt = requireNotNull(session.endedAt) { "Una sesion cerrada debe tener fecha de fin." }
+                workoutDao.transitionActiveSession(
+                    sessionId = session.id,
+                    endedAt = endedAt,
+                    durationSeconds = session.durationSeconds,
+                    status = session.status,
+                    notes = session.notes,
+                    perceivedEnergy = session.perceivedEnergy,
+                    updatedAt = session.updatedAt,
+                )
+            }
+            if (updatedRows == 0) {
+                if (workoutDao.getSession(session.id) == null) throw NoSuchElementException("La sesion no existe.")
+                throw IllegalArgumentException("La sesion ya no esta activa.")
             }
             Unit
         }
 
     override suspend fun addExerciseToSession(workoutExercise: WorkoutExercise): AppResult<Long> =
         validateWorkoutExercise(workoutExercise, requireExistingId = false) {
-            val session = workoutDao.getSession(workoutExercise.workoutSessionId)
-                ?: throw NoSuchElementException("La sesion no existe.")
-            require(session.status == SessionStatus.ACTIVE && session.endedAt == null) {
-                "Solo se pueden anadir ejercicios a una sesion activa."
+            database.withTransaction {
+                val session = workoutDao.getSession(workoutExercise.workoutSessionId)
+                    ?: throw NoSuchElementException("La sesion no existe.")
+                require(session.status == SessionStatus.ACTIVE && session.endedAt == null) {
+                    "Solo se pueden anadir ejercicios a una sesion activa."
+                }
+                val variant = exerciseDao.getExerciseVariant(workoutExercise.exerciseVariantId)
+                    ?: throw NoSuchElementException("La variante no existe.")
+                require(!variant.isArchived) { "La variante seleccionada esta archivada." }
+                val base = exerciseDao.getExerciseBase(variant.exerciseBaseId)
+                    ?: throw NoSuchElementException("El ejercicio de la variante no existe.")
+                require(!base.isArchived) { "El ejercicio seleccionado esta archivado." }
+                workoutDao.insertWorkoutExercise(WorkoutMapper.toEntity(workoutExercise))
             }
-            workoutDao.insertWorkoutExercise(WorkoutMapper.toEntity(workoutExercise))
         }
 
     override suspend fun saveWorkoutSet(workoutSet: WorkoutSet): AppResult<Long> =
@@ -101,16 +146,22 @@ class WorkoutRepositoryImpl(
 
     override suspend fun updateWorkoutSet(workoutSet: WorkoutSet): AppResult<Unit> =
         validateWorkoutSet(workoutSet, requireExistingId = true) {
-            if (workoutDao.updateWorkoutSet(WorkoutMapper.toEntity(workoutSet)) == 0) {
-                throw NoSuchElementException("La serie no existe.")
+            if (workoutDao.updateWorkoutSetIfSessionActive(WorkoutMapper.toEntity(workoutSet)) == 0) {
+                if (workoutDao.getWorkoutSet(workoutSet.id) == null) {
+                    throw NoSuchElementException("La serie no existe.")
+                }
+                throw IllegalArgumentException("Solo se pueden editar series de una sesion activa.")
             }
             Unit
         }
 
     override suspend fun deleteWorkoutSet(setId: Long): AppResult<Unit> =
         validateId(setId, "setId") {
-            if (workoutDao.deleteWorkoutSet(setId) == 0) {
-                throw NoSuchElementException("La serie no existe.")
+            if (workoutDao.deleteWorkoutSetIfSessionActive(setId) == 0) {
+                if (workoutDao.getWorkoutSet(setId) == null) {
+                    throw NoSuchElementException("La serie no existe.")
+                }
+                throw IllegalArgumentException("Solo se pueden borrar series de una sesion activa.")
             }
             Unit
         }

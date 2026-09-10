@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "license": "GymQuest original metadata; no third-party media included",
+  "exercises": [
+    {"id":"gq-bodyweight-squat","name":"Sentadilla de peso corporal","muscle":"quadriceps","bodyPart":"legs","equipment":"bodyweight","category":"strength","instructions":["Baja con control.","Mantén los pies apoyados."]},
+    {"id":"gq-push-up","name":"Flexión","muscle":"pectorals","bodyPart":"chest","equipment":"bodyweight","category":"strength","instructions":["Mantén el tronco alineado.","Empuja sin bloquear dolorosamente los codos."]},
+    {"id":"gq-band-row","name":"Remo con banda","muscle":"lats","bodyPart":"back","equipment":"band","category":"strength","instructions":["Mantén los hombros bajos.","Acerca los codos al cuerpo."]}
+  ]
+}

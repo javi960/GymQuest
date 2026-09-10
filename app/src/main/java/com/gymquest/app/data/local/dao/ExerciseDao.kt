@@ -9,6 +9,8 @@ import com.gymquest.app.data.local.entity.ExerciseBaseEntity
 import com.gymquest.app.data.local.entity.ExerciseVariantEntity
 import com.gymquest.app.data.local.entity.MuscleGroupEntity
 import com.gymquest.app.data.local.relation.ExerciseBaseWithVariants
+import com.gymquest.app.data.seed.CatalogSeedEntry
+import com.gymquest.app.domain.model.enums.WeightComparisonType
 import java.time.Instant
 import kotlinx.coroutines.flow.Flow
 
@@ -81,6 +83,9 @@ interface ExerciseDao {
     @Query("SELECT * FROM exercise_variants WHERE id = :variantId LIMIT 1")
     suspend fun getExerciseVariant(variantId: Long): ExerciseVariantEntity?
 
+    @Query("SELECT * FROM exercise_bases WHERE id = :baseId LIMIT 1")
+    suspend fun getExerciseBase(baseId: Long): ExerciseBaseEntity?
+
     @Transaction
     @Query("SELECT * FROM exercise_bases WHERE id = :baseId LIMIT 1")
     suspend fun getExerciseBaseWithVariants(baseId: Long): ExerciseBaseWithVariants?
@@ -93,4 +98,81 @@ interface ExerciseDao {
 
     @Query("UPDATE exercise_variants SET isArchived = 1, updatedAt = :updatedAt WHERE id = :variantId")
     suspend fun archiveExerciseVariant(variantId: Long, updatedAt: Instant): Int
+
+    @Query("SELECT id FROM muscle_groups WHERE name = :name LIMIT 1")
+    suspend fun findMuscleGroupIdByName(name: String): Long?
+
+    @Query("SELECT id FROM exercise_bases WHERE primaryMuscleGroupId = :muscleGroupId AND name = :name LIMIT 1")
+    suspend fun findExerciseBaseId(muscleGroupId: Long, name: String): Long?
+
+    @Query("SELECT id FROM exercise_bases WHERE primaryMuscleGroupId = :muscleGroupId AND name = :name AND isBuiltIn = 1 LIMIT 1")
+    suspend fun findBuiltInExerciseBaseId(muscleGroupId: Long, name: String): Long?
+
+    @Query("SELECT id FROM exercise_bases WHERE name = :name AND isBuiltIn = 1 LIMIT 1")
+    suspend fun findBuiltInExerciseBaseIdByName(name: String): Long?
+
+    @Query("SELECT id FROM exercise_variants WHERE exerciseBaseId = :exerciseBaseId AND name = :name LIMIT 1")
+    suspend fun findExerciseVariantId(exerciseBaseId: Long, name: String): Long?
+
+    @Transaction
+    suspend fun seedBuiltInCatalog(entries: List<CatalogSeedEntry>, now: Instant) {
+        val groups = mutableMapOf<String, Long>()
+        entries.forEach { entry ->
+            val groupId = groups[entry.muscleGroupName] ?: run {
+                findMuscleGroupIdByName(entry.muscleGroupName)
+                    ?: insertMuscleGroup(MuscleGroupEntity(name = entry.muscleGroupName, sortOrder = groups.size))
+            }.also { groups[entry.muscleGroupName] = it }
+            val baseId = findBuiltInExerciseBaseId(groupId, entry.exerciseName)
+                ?: findBuiltInExerciseBaseIdByName(entry.exerciseName)?.also { existingId ->
+                    updateExerciseBase(
+                        ExerciseBaseEntity(
+                            id = existingId,
+                            name = entry.exerciseName,
+                            primaryMuscleGroupId = groupId,
+                            description = entry.description,
+                            isBuiltIn = true,
+                            createdAt = now,
+                            updatedAt = now,
+                        ),
+                    )
+                }
+                ?: findBuiltInExerciseBaseIdByName(entry.sourceExerciseName)?.also { existingId ->
+                    updateExerciseBase(
+                        ExerciseBaseEntity(
+                            id = existingId,
+                            name = entry.exerciseName,
+                            primaryMuscleGroupId = groupId,
+                            description = entry.description,
+                            isBuiltIn = true,
+                            createdAt = now,
+                            updatedAt = now,
+                        ),
+                    )
+                }
+                ?: insertExerciseBase(
+                    ExerciseBaseEntity(
+                        name = entry.exerciseName,
+                        primaryMuscleGroupId = groupId,
+                        description = entry.description,
+                        isBuiltIn = true,
+                        createdAt = now,
+                        updatedAt = now,
+                    ),
+                )
+            if (findExerciseVariantId(baseId, entry.variantName) == null) {
+                insertExerciseVariant(
+                    ExerciseVariantEntity(
+                        exerciseBaseId = baseId,
+                        name = entry.variantName,
+                        equipmentType = entry.equipmentType,
+                        weightComparisonType = WeightComparisonType.TOTAL_WEIGHT,
+                        notes = "Catálogo local MIT: hasaneyldrm/exercises-dataset. Sin media de terceros.",
+                        isBuiltIn = true,
+                        createdAt = now,
+                        updatedAt = now,
+                    ),
+                )
+            }
+        }
+    }
 }

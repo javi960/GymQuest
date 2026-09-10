@@ -27,11 +27,40 @@ interface WorkoutDao {
     @Update
     suspend fun updateSession(entity: WorkoutSessionEntity): Int
 
+    @Query(
+        """
+        UPDATE workout_sessions
+        SET endedAt = :endedAt,
+            durationSeconds = :durationSeconds,
+            status = :status,
+            notes = :notes,
+            perceivedEnergy = :perceivedEnergy,
+            updatedAt = :updatedAt
+        WHERE id = :sessionId AND status = 'ACTIVE' AND endedAt IS NULL
+        """,
+    )
+    suspend fun transitionActiveSession(
+        sessionId: Long,
+        endedAt: java.time.Instant,
+        durationSeconds: Long,
+        status: SessionStatus,
+        notes: String?,
+        perceivedEnergy: Int?,
+        updatedAt: java.time.Instant,
+    ): Int
+
     @Update
     suspend fun updateWorkoutExercise(entity: WorkoutExerciseEntity): Int
 
     @Update
     suspend fun updateWorkoutSet(entity: WorkoutSetEntity): Int
+
+    @Transaction
+    suspend fun updateWorkoutSetIfSessionActive(entity: WorkoutSetEntity): Int {
+        val session = getSessionForWorkoutSet(entity.id) ?: return 0
+        if (session.status != SessionStatus.ACTIVE || session.endedAt != null) return 0
+        return updateWorkoutSet(entity)
+    }
 
     @Query("SELECT * FROM workout_sessions WHERE status = 'ACTIVE' AND endedAt IS NULL ORDER BY startedAt DESC LIMIT 1")
     suspend fun getActiveSession(): WorkoutSessionEntity?
@@ -47,6 +76,18 @@ interface WorkoutDao {
 
     @Query("SELECT * FROM workout_sets WHERE id = :setId LIMIT 1")
     suspend fun getWorkoutSet(setId: Long): WorkoutSetEntity?
+
+    @Query(
+        """
+        SELECT workout_sessions.*
+        FROM workout_sessions
+        INNER JOIN workout_exercises ON workout_exercises.workoutSessionId = workout_sessions.id
+        INNER JOIN workout_sets ON workout_sets.workoutExerciseId = workout_exercises.id
+        WHERE workout_sets.id = :setId
+        LIMIT 1
+        """,
+    )
+    suspend fun getSessionForWorkoutSet(setId: Long): WorkoutSessionEntity?
 
     @Transaction
     @Query("SELECT * FROM workout_sessions WHERE id = :sessionId LIMIT 1")
@@ -66,6 +107,14 @@ interface WorkoutDao {
 
     @Query("SELECT * FROM workout_sessions ORDER BY startedAt DESC LIMIT :limit")
     fun observeSessions(limit: Int): Flow<List<WorkoutSessionEntity>>
+
+    @Transaction
+    @Query("SELECT * FROM workout_sessions WHERE status = 'FINISHED' ORDER BY endedAt ASC, startedAt ASC")
+    suspend fun getFinishedSessionsWithExercises(): List<WorkoutSessionWithExercises>
+
+    @Transaction
+    @Query("SELECT * FROM workout_sessions WHERE status = 'FINISHED' ORDER BY endedAt DESC, startedAt DESC")
+    fun observeFinishedSessionsWithExercises(): Flow<List<WorkoutSessionWithExercises>>
 
     @Query("SELECT * FROM workout_exercises WHERE workoutSessionId = :sessionId ORDER BY orderIndex")
     suspend fun getWorkoutExercisesForSession(sessionId: Long): List<WorkoutExerciseEntity>
@@ -92,4 +141,11 @@ interface WorkoutDao {
 
     @Query("DELETE FROM workout_sets WHERE id = :setId")
     suspend fun deleteWorkoutSet(setId: Long): Int
+
+    @Transaction
+    suspend fun deleteWorkoutSetIfSessionActive(setId: Long): Int {
+        val session = getSessionForWorkoutSet(setId) ?: return 0
+        if (session.status != SessionStatus.ACTIVE || session.endedAt != null) return 0
+        return deleteWorkoutSet(setId)
+    }
 }

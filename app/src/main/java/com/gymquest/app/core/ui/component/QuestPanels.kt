@@ -1,6 +1,7 @@
 package com.gymquest.app.core.ui.component
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -18,10 +20,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.gymquest.app.core.ui.theme.QuestTheme
@@ -58,7 +69,7 @@ fun QuestPanel(
         border = BorderStroke(1.dp, tokens.colors.panelBorder),
         modifier = modifier
             .fillMaxWidth()
-            .shadow(3.dp, RoundedCornerShape(tokens.radii.panel), clip = false),
+            .shadow(1.dp, RoundedCornerShape(tokens.radii.panel), clip = false),
     ) {
         Column(
             modifier = Modifier.padding(tokens.spacing.lg),
@@ -74,7 +85,12 @@ fun QuestSectionHeader(
     subtitle: String? = null,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics { heading() },
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
         Text(text = title, style = MaterialTheme.typography.titleLarge)
         if (subtitle != null) {
             Text(
@@ -101,7 +117,9 @@ fun StatBadge(
         modifier = modifier,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier
+                .semantics(mergeDescendants = true) { contentDescription = "$label: $value" }
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -132,9 +150,25 @@ fun XpProgressBar(
 ) {
     val safeTarget = targetXp.coerceAtLeast(1)
     val progress = (currentXp.toFloat() / safeTarget).coerceIn(0f, 1f)
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) {
+                contentDescription = "Nivel $level. $currentXp de $targetXp puntos de experiencia."
+                progressBarRangeInfo = ProgressBarRangeInfo(progress, 0f..1f)
+            },
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            Text("Nivel $level", style = MaterialTheme.typography.labelLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                QuestAssetIcon(
+                    asset = QuestAsset.Xp,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = QuestTheme.tokens.colors.xpGold,
+                )
+                Text("Nivel $level", style = MaterialTheme.typography.labelLarge)
+            }
             Text("$currentXp / $targetXp XP", style = MaterialTheme.typography.labelLarge)
         }
         LinearProgressIndicator(
@@ -153,27 +187,61 @@ fun CharacterHeader(
     currentXp: Int,
     targetXp: Int,
     subtitle: String,
+    portraitFileName: String? = null,
+    portraitContentDescription: String? = null,
+    showXpProgress: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     QuestPanel(modifier = modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(
-                color = QuestTheme.tokens.colors.blueStructure,
-                contentColor = androidx.compose.ui.graphics.Color.White,
-                shape = RoundedCornerShape(18.dp),
-            ) {
-                Icon(
-                    imageVector = QuestSymbol.Achievement.icon,
-                    contentDescription = QuestSymbol.Achievement.contentDescription,
-                    modifier = Modifier.padding(12.dp),
-                )
-            }
+            CharacterPortrait(
+                fileName = portraitFileName,
+                contentDescription = portraitContentDescription,
+            )
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(name, style = MaterialTheme.typography.headlineSmall)
                 Text(subtitle, color = QuestTheme.tokens.colors.textSecondary)
             }
         }
-        XpProgressBar(currentXp = currentXp, targetXp = targetXp, level = level)
+        if (showXpProgress) {
+            XpProgressBar(currentXp = currentXp, targetXp = targetXp, level = level)
+        }
+    }
+}
+
+@Composable
+private fun CharacterPortrait(
+    fileName: String?,
+    contentDescription: String?,
+) {
+    val context = LocalContext.current
+    val resourceId = remember(fileName) {
+        fileName
+            ?.removeSuffix(".png")
+            ?.let { context.resources.getIdentifier(it, "drawable", context.packageName) }
+            ?: 0
+    }
+    if (resourceId != 0) {
+        Image(
+            painter = painterResource(resourceId),
+            contentDescription = contentDescription,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.size(64.dp),
+        )
+    } else {
+        Surface(
+            color = QuestTheme.tokens.colors.blueStructure,
+            contentColor = androidx.compose.ui.graphics.Color.White,
+            shape = RoundedCornerShape(18.dp),
+            modifier = Modifier.size(48.dp),
+        ) {
+            QuestAssetIcon(
+                asset = QuestAsset.Character,
+                contentDescription = contentDescription,
+                modifier = Modifier.padding(12.dp),
+                tint = androidx.compose.ui.graphics.Color.White,
+            )
+        }
     }
 }
 
@@ -187,9 +255,9 @@ fun MissionCard(
 ) {
     QuestPanel(modifier = modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
-            Icon(
-                imageVector = QuestSymbol.Mission.icon,
-                contentDescription = QuestSymbol.Mission.contentDescription,
+            QuestAssetIcon(
+                asset = QuestAsset.Mission,
+                contentDescription = null,
                 tint = QuestTheme.tokens.colors.xpGold,
             )
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -212,10 +280,11 @@ fun EmptyAdventureState(
     action: (@Composable () -> Unit)? = null,
 ) {
     QuestPanel(modifier = modifier) {
-        Icon(
-            imageVector = QuestSymbol.Mission.icon,
+        QuestAssetIcon(
+            asset = QuestAsset.EmptyState,
             contentDescription = null,
             tint = QuestTheme.tokens.colors.blueStructure,
+            modifier = Modifier.size(48.dp),
         )
         Text(title, style = MaterialTheme.typography.titleLarge)
         Text(description, color = QuestTheme.tokens.colors.textSecondary)

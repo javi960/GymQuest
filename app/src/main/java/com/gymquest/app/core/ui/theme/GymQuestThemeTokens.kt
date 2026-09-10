@@ -37,10 +37,12 @@ data class GymQuestSpacing(
 
 @Immutable
 data class GymQuestRadii(
-    val panel: Dp = 22.dp,
-    val button: Dp = 18.dp,
-    val field: Dp = 16.dp,
-    val badge: Dp = 999.dp,
+    // Compact game HUD geometry: rectangular enough to feel like a panel,
+    // still rounded enough for comfortable touch targets.
+    val panel: Dp = 14.dp,
+    val button: Dp = 10.dp,
+    val field: Dp = 8.dp,
+    val badge: Dp = 10.dp,
 )
 
 @Immutable
@@ -50,11 +52,23 @@ data class GymQuestSizes(
 )
 
 @Immutable
+data class GymQuestMotion(
+    val feedbackMillis: Int = 100,
+    val stateChangeMillis: Int = 180,
+    val celebrationMillis: Int = 300,
+    val hapticFeedbackEnabled: Boolean = true,
+) {
+    fun respecting(reducedMotion: Boolean): GymQuestMotion =
+        if (reducedMotion) copy(feedbackMillis = 0, stateChangeMillis = 0, celebrationMillis = 0, hapticFeedbackEnabled = false) else this
+}
+
+@Immutable
 data class GymQuestThemeTokens(
     val colors: GymQuestColors,
     val spacing: GymQuestSpacing = GymQuestSpacing(),
     val radii: GymQuestRadii = GymQuestRadii(),
     val sizes: GymQuestSizes = GymQuestSizes(),
+    val motion: GymQuestMotion = GymQuestMotion(),
 )
 
 private val LocalGymQuestThemeTokens = compositionLocalOf {

@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.gymquest.app.domain.model.enums.MartialTechniqueFamily
 import java.time.Instant
 
 @Entity(
@@ -16,7 +17,7 @@ data class MartialTechniqueEntity(
     val martialStyleId: Long,
     val name: String,
     val translation: String? = null,
-    val category: String? = null,
+    val category: MartialTechniqueFamily? = null,
     val description: String? = null,
     val notes: String? = null,
     val isArchived: Boolean = false,

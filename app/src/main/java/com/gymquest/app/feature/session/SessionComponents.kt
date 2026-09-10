@@ -5,14 +5,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,11 +16,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.gymquest.app.core.ui.component.QuestAction
 import com.gymquest.app.core.ui.component.QuestActionButton
+import com.gymquest.app.core.ui.component.QuestDenseDataRow
+import com.gymquest.app.core.ui.component.QuestDenseMetric
+import com.gymquest.app.core.ui.component.QuestNumericField
 import com.gymquest.app.core.ui.component.QuestPanel
+import com.gymquest.app.core.ui.component.QuestSingleChoiceMenu
+import com.gymquest.app.core.ui.component.QuestSymbol
 import com.gymquest.app.core.ui.component.StatBadge
 import com.gymquest.app.core.ui.component.StatBadgeRow
 import com.gymquest.app.core.ui.theme.QuestTheme
@@ -43,6 +46,14 @@ fun WorkoutExerciseCard(
     onSaveSet: (String, String, SetType) -> Unit,
     onUpdateSet: (WorkoutSet, String, String, SetType) -> Unit,
     onDeleteSet: (Long) -> Unit,
+    setSaveState: SetSaveState,
+    manualRestTimer: ManualRestTimerState,
+    manualRestError: String?,
+    onStartRest: () -> Unit,
+    onPauseRest: () -> Unit,
+    onResumeRest: () -> Unit,
+    onAdvanceRest: () -> Unit,
+    onRestTargetChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     QuestPanel(modifier = modifier.fillMaxWidth()) {
@@ -56,8 +67,17 @@ fun WorkoutExerciseCard(
             onUpdateSet = onUpdateSet,
             onDeleteSet = onDeleteSet,
         )
-        RestTimerBar(lastSet = exerciseDetail.sets.lastOrNull())
-        SetInputRow(onSaveSet = onSaveSet)
+        RestTimerBar(
+            lastSet = exerciseDetail.sets.lastOrNull(),
+            timer = manualRestTimer,
+            errorMessage = manualRestError,
+            onStart = onStartRest,
+            onPause = onPauseRest,
+            onResume = onResumeRest,
+            onTick = onAdvanceRest,
+            onTargetChange = onRestTargetChange,
+        )
+        SetInputRow(onSaveSet = onSaveSet, saveState = setSaveState)
     }
 }
 
@@ -92,22 +112,38 @@ private fun EditableSetRow(
     var weightText by remember(set.id, set.weightValue) { mutableStateOf(set.weightValue.toString()) }
     var repsText by remember(set.id, set.reps) { mutableStateOf(set.reps.toString()) }
     var setType by remember(set.id, set.setType) { mutableStateOf(set.setType) }
+    var weightError by remember(set.id) { mutableStateOf<String?>(null) }
+    var repsError by remember(set.id) { mutableStateOf<String?>(null) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("${set.setNumber}. ${set.setType.label()} - Descanso previo: ${set.restBeforeSeconds ?: 0}s")
+        Icon(
+            imageVector = QuestSymbol.SavedSet.icon,
+            contentDescription = null,
+            tint = QuestTheme.tokens.colors.positive,
+        )
+        QuestDenseDataRow(
+            metrics = listOf(
+                QuestDenseMetric("Serie", set.setNumber.toString()),
+                QuestDenseMetric("Guardada", "${set.weightValue} kg x ${set.reps} reps"),
+                QuestDenseMetric("Descanso", "${set.restBeforeSeconds ?: 0} s"),
+            ),
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
+            QuestNumericField(
                 value = weightText,
-                onValueChange = { weightText = it },
-                label = { Text("Peso") },
+                onValueChange = { weightText = it; weightError = null },
+                label = "Peso",
+                unit = "kg",
+                errorMessage = weightError,
                 modifier = Modifier.weight(1f),
-                singleLine = true,
             )
-            OutlinedTextField(
+            QuestNumericField(
                 value = repsText,
-                onValueChange = { repsText = it },
-                label = { Text("Reps") },
+                onValueChange = { repsText = it; repsError = null },
+                label = "Reps",
+                unit = "reps",
+                integerOnly = true,
+                errorMessage = repsError,
                 modifier = Modifier.weight(1f),
-                singleLine = true,
             )
         }
         SetTypeDropdown(selectedType = setType, onSelectedTypeChange = { setType = it })
@@ -115,7 +151,12 @@ private fun EditableSetRow(
             QuestActionButton(
                 action = QuestAction.Save,
                 label = "Actualizar",
-                onClick = { onUpdateSet(set, weightText, repsText, setType) },
+                onClick = {
+                    val errors = validateSetInputs(weightText, repsText)
+                    weightError = errors.weight
+                    repsError = errors.reps
+                    if (errors.isValid) onUpdateSet(set, weightText, repsText, setType)
+                },
             )
             QuestActionButton(
                 action = QuestAction.Delete,
@@ -129,21 +170,68 @@ private fun EditableSetRow(
 @Composable
 fun RestTimerBar(
     lastSet: WorkoutSet?,
+    timer: ManualRestTimerState,
+    errorMessage: String?,
+    onStart: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+    onTick: () -> Unit,
+    onTargetChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val restStartedAt = lastSet?.endedAt ?: return
-    var now by remember(restStartedAt) { mutableStateOf(Instant.now()) }
-    LaunchedEffect(restStartedAt) {
-        while (true) {
-            now = Instant.now()
+    var targetText by remember(lastSet.workoutExerciseId, timer.targetSeconds) {
+        mutableStateOf(timer.targetSeconds.toString())
+    }
+    LaunchedEffect(timer.isRunning, lastSet.id) {
+        while (timer.isRunning) {
             delay(1_000)
+            onTick()
         }
     }
-    val restSeconds = restStartedAt.until(now, ChronoUnit.SECONDS).coerceAtLeast(0)
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("Descanso actual: ${restSeconds}s", style = MaterialTheme.typography.bodySmall)
+    val actualRestSeconds = restStartedAt.until(Instant.now(), ChronoUnit.SECONDS).coerceAtLeast(0)
+    val timerState = if (timer.isRunning) "en marcha" else "en pausa"
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) {
+                contentDescription = "Descanso registrado: $actualRestSeconds segundos. " +
+                    "Temporizador manual $timerState: ${timer.elapsedSeconds} de ${timer.targetSeconds} segundos."
+                progressBarRangeInfo = ProgressBarRangeInfo(timer.progress, 0f..1f)
+            },
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text("Descanso registrado: ${actualRestSeconds}s", style = MaterialTheme.typography.bodySmall)
+        QuestNumericField(
+            value = targetText,
+            onValueChange = { value ->
+                targetText = value
+                onTargetChange(value)
+            },
+            label = "Objetivo de descanso",
+            unit = "s",
+            integerOnly = true,
+            errorMessage = errorMessage,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            text = "Temporizador manual: ${timer.elapsedSeconds}s de ${timer.targetSeconds}s",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            QuestActionButton(
+                action = QuestAction.Start,
+                label = "Reiniciar descanso",
+                onClick = onStart,
+            )
+            QuestActionButton(
+                action = if (timer.isRunning) QuestAction.Pause else QuestAction.Resume,
+                label = if (timer.isRunning) "Pausar descanso" else "Reanudar descanso",
+                onClick = if (timer.isRunning) onPause else onResume,
+            )
+        }
         LinearProgressIndicator(
-            progress = { ((restSeconds % DEFAULT_REST_WINDOW_SECONDS).toFloat() / DEFAULT_REST_WINDOW_SECONDS) },
+            progress = { timer.progress },
             color = QuestTheme.tokens.colors.xpGold,
             trackColor = QuestTheme.tokens.colors.panelBorder,
             modifier = Modifier.fillMaxWidth(),
@@ -154,79 +242,92 @@ fun RestTimerBar(
 @Composable
 fun SetInputRow(
     onSaveSet: (String, String, SetType) -> Unit,
+    saveState: SetSaveState = SetSaveState.Idle,
     modifier: Modifier = Modifier,
 ) {
     var weightText by remember { mutableStateOf("") }
     var repsText by remember { mutableStateOf("") }
     var setType by remember { mutableStateOf(SetType.WORK) }
+    var weightError by remember { mutableStateOf<String?>(null) }
+    var repsError by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(saveState) {
+        if (saveState is SetSaveState.Saved) {
+            weightText = ""
+            repsText = ""
+        }
+    }
+    val isSaving = saveState is SetSaveState.Saving
+    val saveError = (saveState as? SetSaveState.Failed)?.message
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
+            QuestNumericField(
                 value = weightText,
-                onValueChange = { weightText = it },
-                label = { Text("Peso") },
+                onValueChange = { weightText = it; weightError = null },
+                label = "Peso",
+                unit = "kg",
+                errorMessage = weightError,
+                enabled = !isSaving,
                 modifier = Modifier.weight(1f),
-                singleLine = true,
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal),
             )
-            OutlinedTextField(
+            QuestNumericField(
                 value = repsText,
-                onValueChange = { repsText = it },
-                label = { Text("Reps") },
+                onValueChange = { repsText = it; repsError = null },
+                label = "Reps",
+                unit = "reps",
+                integerOnly = true,
+                errorMessage = repsError,
+                enabled = !isSaving,
                 modifier = Modifier.weight(1f),
-                singleLine = true,
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
             )
         }
-        SetTypeDropdown(selectedType = setType, onSelectedTypeChange = { setType = it })
+        SetTypeDropdown(selectedType = setType, onSelectedTypeChange = { setType = it }, enabled = !isSaving)
+        saveError?.let { Text(it, color = QuestTheme.tokens.colors.error, style = MaterialTheme.typography.bodySmall) }
         QuestActionButton(
             action = QuestAction.Save,
-            label = "Guardar serie",
+            label = if (isSaving) "Guardando…" else "Guardar serie",
+            enabled = !isSaving,
             onClick = {
-                onSaveSet(weightText, repsText, setType)
-                weightText = ""
-                repsText = ""
+                val errors = validateSetInputs(weightText, repsText)
+                weightError = errors.weight
+                repsError = errors.reps
+                if (errors.isValid) {
+                    onSaveSet(weightText, repsText, setType)
+                }
             },
         )
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+private data class SetInputErrors(
+    val weight: String? = null,
+    val reps: String? = null,
+) {
+    val isValid: Boolean get() = weight == null && reps == null
+}
+
+private fun validateSetInputs(weightInput: String, repsInput: String): SetInputErrors {
+    val weight = weightInput.replace(',', '.').toDoubleOrNull()
+    val reps = repsInput.toIntOrNull()
+    return SetInputErrors(
+        weight = if (weight == null || weight < 0) "Introduce un peso válido de 0 kg o más." else null,
+        reps = if (reps == null || reps <= 0) "Introduce al menos 1 repetición." else null,
+    )
+}
+
 @Composable
 private fun SetTypeDropdown(
     selectedType: SetType,
     onSelectedTypeChange: (SetType) -> Unit,
+    enabled: Boolean = true,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-    ) {
-        OutlinedTextField(
-            value = selectedType.label(),
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Tipo") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true)
-                .fillMaxWidth(),
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            SetType.entries.forEach { type ->
-                DropdownMenuItem(
-                    text = { Text(type.label()) },
-                    onClick = {
-                        onSelectedTypeChange(type)
-                        expanded = false
-                    },
-                )
-            }
-        }
-    }
+    QuestSingleChoiceMenu(
+        selected = selectedType,
+        options = SetType.entries,
+        label = "Tipo",
+        optionLabel = SetType::label,
+        onSelectedChange = onSelectedTypeChange,
+        enabled = enabled,
+    )
 }
 
 private fun SetType.label(): String =
@@ -239,5 +340,3 @@ private fun SetType.label(): String =
         SetType.DROPSET -> "Dropset"
         SetType.REST_PAUSE -> "Rest pause"
     }
-
-private const val DEFAULT_REST_WINDOW_SECONDS = 180

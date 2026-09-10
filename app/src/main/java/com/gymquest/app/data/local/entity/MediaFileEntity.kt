@@ -12,6 +12,7 @@ data class MediaFileEntity(
     val ownerId: Long,
     val mediaType: String,
     val localUri: String,
+    val thumbnailUri: String? = null,
     val title: String? = null,
     val notes: String? = null,
     val createdAt: Instant,

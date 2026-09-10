@@ -1,249 +1,214 @@
 package com.gymquest.app.feature.catalog
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
-import com.gymquest.app.app.GymQuestApp
-import com.gymquest.app.core.time.SystemClockProvider
 import com.gymquest.app.core.ui.component.EmptyAdventureState
 import com.gymquest.app.core.ui.component.QuestAction
-import com.gymquest.app.core.ui.component.QuestActionButton
 import com.gymquest.app.core.ui.component.QuestButton
+import com.gymquest.app.core.ui.component.QuestFilterChip
+import com.gymquest.app.core.ui.component.icon
 import com.gymquest.app.core.ui.component.QuestPanel
 import com.gymquest.app.core.ui.component.QuestScreen
+import com.gymquest.app.core.ui.component.QuestSearchField
 import com.gymquest.app.core.ui.component.QuestSectionHeader
 import com.gymquest.app.core.ui.component.StatBadge
 import com.gymquest.app.core.ui.component.StatBadgeRow
-import com.gymquest.app.domain.model.ExerciseCatalogEntry
 import com.gymquest.app.domain.model.enums.EquipmentType
-import com.gymquest.app.domain.model.enums.WeightComparisonType
 
 @Composable
-fun CatalogScreen() {
-    val application = LocalContext.current.applicationContext as GymQuestApp
-    val container = application.appContainer
-    val viewModel: CatalogViewModel = viewModel(
-        factory = viewModelFactory {
-            initializer {
-                CatalogViewModel(
-                    createMuscleGroup = container.createMuscleGroupUseCase,
-                    observeMuscleGroups = container.observeMuscleGroupsUseCase,
-                    createExerciseBase = container.createExerciseBaseUseCase,
-                    createExerciseVariant = container.createExerciseVariantUseCase,
-                    observeExerciseCatalog = container.observeExerciseCatalogUseCase,
-                    clock = SystemClockProvider,
-                )
-            }
-        },
-    )
+fun CatalogScreen(
+    onOpenExerciseDetail: (Long) -> Unit,
+    onAddMuscleGroup: () -> Unit,
+    onAddExercise: () -> Unit,
+) {
+    val viewModel = rememberCatalogViewModel()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    CatalogContent(
-        state = state,
-        onSelectMuscleGroup = viewModel::selectMuscleGroup,
-        onAddMuscleGroup = viewModel::addMuscleGroup,
-        onAddExerciseBase = viewModel::addExerciseBase,
-        onAddExerciseVariant = viewModel::addExerciseVariant,
-        onClearFeedback = viewModel::clearFeedback,
-    )
+    CatalogContent(state, onOpenExerciseDetail, onAddMuscleGroup, onAddExercise, viewModel::clearFeedback, viewModel::retry)
 }
 
 @Composable
-private fun CatalogContent(
+internal fun CatalogContent(
     state: CatalogUiState,
-    onSelectMuscleGroup: (Long) -> Unit,
-    onAddMuscleGroup: (String) -> Unit,
-    onAddExerciseBase: (String, String?) -> Unit,
-    onAddExerciseVariant: (Long, String, EquipmentType, WeightComparisonType, String?) -> Unit,
+    onOpenExerciseDetail: (Long) -> Unit,
+    onAddMuscleGroup: () -> Unit,
+    onAddExercise: () -> Unit,
     onClearFeedback: () -> Unit,
+    onRetry: () -> Unit,
 ) {
-    var muscleGroupName by remember { mutableStateOf("") }
-    var exerciseName by remember { mutableStateOf("") }
-    var exerciseDescription by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
+    var selectedFilterGroupId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var selectedEquipmentType by rememberSaveable { mutableStateOf<EquipmentType?>(null) }
+    var speedDialExpanded by rememberSaveable { mutableStateOf(false) }
+    val visibleCatalog = state.catalog.filterCatalog(query, selectedFilterGroupId, selectedEquipmentType)
+    val visibleCatalogByGroup = visibleCatalog.groupBy { it.exerciseBase.primaryMuscleGroupId }
 
     QuestScreen {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            item {
-                QuestPanel {
+        Box(Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 104.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                item {
                     QuestSectionHeader(
-                        title = "Catalogo de ejercicios",
-                        subtitle = "Crea tu coleccion local: grupos, ejercicios base y variantes listas para entrenar.",
-                    )
-                    StatBadgeRow {
-                        StatBadge(label = "grupos", value = state.muscleGroups.size.toString())
-                        StatBadge(label = "ejercicios", value = state.catalog.size.toString())
-                    }
-                }
-            }
-            item {
-                QuestPanel {
-                    Text("Nuevo grupo muscular", style = MaterialTheme.typography.titleMedium)
-                    OutlinedTextField(
-                        value = muscleGroupName,
-                        onValueChange = { muscleGroupName = it },
-                        label = { Text("Nombre") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-                    QuestActionButton(
-                        action = QuestAction.Add,
-                        label = "Anadir grupo",
-                        onClick = {
-                            onAddMuscleGroup(muscleGroupName)
-                            muscleGroupName = ""
-                        },
+                        title = "Catálogo de ejercicios",
+                        subtitle = "Encuentra un ejercicio o abre su ficha para ver y editar todos sus datos.",
                     )
                 }
-            }
-            item {
-                QuestPanel {
-                    Text("Grupo para el ejercicio", style = MaterialTheme.typography.titleMedium)
-                    if (state.muscleGroups.isEmpty()) {
-                        Text("Crea al menos un grupo para clasificar tus ejercicios.")
-                    } else {
+                item {
+                    QuestPanel {
+                        QuestSearchField(value = query, onValueChange = { query = it })
+                        Text("Explorar por parte del cuerpo", style = MaterialTheme.typography.titleSmall)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            QuestFilterChip("Todos", selectedFilterGroupId == null, onClick = { selectedFilterGroupId = null })
                             state.muscleGroups.forEach { group ->
-                                FilterChip(
-                                    selected = state.selectedMuscleGroupId == group.id,
-                                    onClick = { onSelectMuscleGroup(group.id) },
-                                    label = { Text(group.name) },
+                                val count = state.catalog.count { it.exerciseBase.primaryMuscleGroupId == group.id }
+                                QuestFilterChip("${group.name} ($count)", selectedFilterGroupId == group.id, onClick = { selectedFilterGroupId = group.id })
+                            }
+                        }
+                        Text("Filtrar por equipo", style = MaterialTheme.typography.titleSmall)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            QuestFilterChip("Todos", selectedEquipmentType == null, onClick = { selectedEquipmentType = null })
+                            EquipmentType.entries.forEach { equipment ->
+                                val count = state.catalog.count { entry -> entry.variants.any { it.equipmentType == equipment } }
+                                QuestFilterChip(
+                                    "${equipment.catalogLabel()} ($count)",
+                                    selectedEquipmentType == equipment,
+                                    onClick = { selectedEquipmentType = equipment },
                                 )
                             }
                         }
                     }
                 }
-            }
-            item {
-                QuestPanel {
-                    Text("Nuevo ejercicio base", style = MaterialTheme.typography.titleMedium)
-                    OutlinedTextField(
-                        value = exerciseName,
-                        onValueChange = { exerciseName = it },
-                        label = { Text("Ejercicio base") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-                    OutlinedTextField(
-                        value = exerciseDescription,
-                        onValueChange = { exerciseDescription = it },
-                        label = { Text("Descripcion opcional") },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    QuestActionButton(
-                        action = QuestAction.Add,
-                        label = "Anadir ejercicio",
-                        onClick = {
-                            onAddExerciseBase(exerciseName, exerciseDescription)
-                            exerciseName = ""
-                            exerciseDescription = ""
-                        },
-                    )
-                }
-            }
-            state.feedback?.let { feedback ->
                 item {
-                    QuestPanel {
-                        Text(feedback)
-                        QuestButton(text = "Entendido", action = QuestAction.Finish, onClick = onClearFeedback)
+                    StatBadgeRow {
+                        StatBadge(label = "grupos", value = state.muscleGroups.size.toString())
+                        StatBadge(label = "ejercicios", value = state.catalog.size.toString())
+                    }
+                }
+                if (state.isLoading) {
+                    item { EmptyAdventureState("Cargando catálogo", "Preparando grupos musculares y ejercicios disponibles.") }
+                } else if (state.errorMessage != null) {
+                    item {
+                        EmptyAdventureState(
+                            "No se pudo cargar el catálogo",
+                            state.errorMessage,
+                            action = { QuestButton("Reintentar", onClick = onRetry) },
+                        )
+                    }
+                } else {
+                    state.feedback?.let { feedback ->
+                        item {
+                            QuestPanel {
+                                Text(feedback)
+                                QuestButton("Entendido", onClick = onClearFeedback, action = QuestAction.Finish)
+                            }
+                        }
+                    }
+                    item {
+                        QuestSectionHeader(
+                            "Ejercicios por parte del cuerpo",
+                            "Filtra por equipo y toca una ficha para consultar variantes, guía visual y opciones de edición.",
+                        )
+                    }
+                    when {
+                        state.catalog.isEmpty() -> item {
+                            EmptyAdventureState("Catálogo vacío", "Añade un grupo muscular y después crea tu primer ejercicio.")
+                        }
+                        visibleCatalog.isEmpty() -> item {
+                            EmptyAdventureState("Sin resultados", "Prueba otra búsqueda o elimina el filtro de grupo.")
+                        }
+                        else -> state.muscleGroups.forEach { group ->
+                            val entries = visibleCatalogByGroup[group.id].orEmpty()
+                            if (entries.isNotEmpty()) {
+                                item(key = "group-${group.id}") {
+                                    QuestSectionHeader("${group.name} (${entries.size})")
+                                }
+                                items(entries, key = { it.exerciseBase.id }) { entry ->
+                                    ExerciseSummaryCard(entry.exerciseBase.name, entry.variants.size) {
+                                        onOpenExerciseDetail(entry.exerciseBase.id)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
-            item {
-                QuestSectionHeader(
-                    title = "Ejercicios guardados",
-                    subtitle = "Variantes disponibles para anadir a la sesion activa.",
-                )
-            }
-            if (state.catalog.isEmpty()) {
-                item {
-                    EmptyAdventureState(
-                        title = "Catalogo vacio",
-                        description = "Crea un grupo muscular y un ejercicio base para empezar a registrar sesiones reales.",
-                    )
-                }
-            } else {
-                items(state.catalog, key = { it.exerciseBase.id }) { entry ->
-                    CatalogEntryCard(
-                        entry = entry,
-                        onAddExerciseVariant = onAddExerciseVariant,
-                    )
-                }
-            }
+            CatalogSpeedDial(
+                expanded = speedDialExpanded,
+                onToggle = { speedDialExpanded = !speedDialExpanded },
+                onAddMuscleGroup = { speedDialExpanded = false; onAddMuscleGroup() },
+                onAddExercise = { speedDialExpanded = false; onAddExercise() },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
+            )
         }
     }
 }
 
 @Composable
-private fun CatalogEntryCard(
-    entry: ExerciseCatalogEntry,
-    onAddExerciseVariant: (Long, String, EquipmentType, WeightComparisonType, String?) -> Unit,
+private fun ExerciseSummaryCard(name: String, variants: Int, onClick: () -> Unit) {
+    QuestPanel(
+        Modifier
+            .semantics { contentDescription = "Abrir ficha del ejercicio $name" }
+            .clickable(role = Role.Button, onClick = onClick),
+    ) {
+        Text(name, style = MaterialTheme.typography.titleMedium)
+        Text(if (variants == 1) "1 variante configurada" else "$variants variantes configuradas", style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun CatalogSpeedDial(
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onAddMuscleGroup: () -> Unit,
+    onAddExercise: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    var variantName by remember(entry.exerciseBase.id) { mutableStateOf("") }
-    var variantNotes by remember(entry.exerciseBase.id) { mutableStateOf("") }
-    QuestPanel {
-        Text(entry.exerciseBase.name, style = MaterialTheme.typography.titleMedium)
-        entry.exerciseBase.description?.let { Text(it) }
-        StatBadge(label = "variantes", value = entry.variants.size.toString())
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            entry.variants.forEach { variant ->
-                Text(
-                    text = "${variant.name} - ${variant.equipmentType.name}",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
+    Column(modifier, horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (expanded) {
+            ExtendedFloatingActionButton(
+                text = { Text("Añadir ejercicio") },
+                icon = { Icon(QuestAction.Add.icon(), contentDescription = null) },
+                onClick = onAddExercise,
+            )
+            ExtendedFloatingActionButton(
+                text = { Text("Añadir grupo muscular") },
+                icon = { Icon(QuestAction.Add.icon(), contentDescription = null) },
+                onClick = onAddMuscleGroup,
+            )
         }
-        OutlinedTextField(
-            value = variantName,
-            onValueChange = { variantName = it },
-            label = { Text("Nueva variante") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-        )
-        OutlinedTextField(
-            value = variantNotes,
-            onValueChange = { variantNotes = it },
-            label = { Text("Notas de variante") },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        QuestActionButton(
-            action = QuestAction.Add,
-            label = "Anadir variante",
-            onClick = {
-                onAddExerciseVariant(
-                    entry.exerciseBase.id,
-                    variantName,
-                    EquipmentType.OTHER,
-                    WeightComparisonType.TOTAL_WEIGHT,
-                    variantNotes,
-                )
-                variantName = ""
-                variantNotes = ""
+        FloatingActionButton(
+            onClick = onToggle,
+            modifier = Modifier.size(64.dp).semantics {
+                contentDescription = if (expanded) "Cerrar acciones de creación" else "Abrir acciones de creación"
             },
-        )
+        ) { Icon(QuestAction.Add.icon(), contentDescription = null) }
     }
 }
