@@ -99,6 +99,11 @@ interface ExerciseDao {
     @Query("UPDATE exercise_variants SET isArchived = 1, updatedAt = :updatedAt WHERE id = :variantId")
     suspend fun archiveExerciseVariant(variantId: Long, updatedAt: Instant): Int
 
+    @Query(
+        "UPDATE exercise_bases SET builtInGifUrl = :url, updatedAt = :updatedAt WHERE id = :baseId AND isBuiltIn = 1",
+    )
+    suspend fun updateBuiltInGifUrl(baseId: Long, url: String, updatedAt: Instant): Int
+
     @Query("SELECT id FROM muscle_groups WHERE name = :name LIMIT 1")
     suspend fun findMuscleGroupIdByName(name: String): Long?
 
@@ -114,8 +119,28 @@ interface ExerciseDao {
     @Query("SELECT id FROM exercise_variants WHERE exerciseBaseId = :exerciseBaseId AND name = :name LIMIT 1")
     suspend fun findExerciseVariantId(exerciseBaseId: Long, name: String): Long?
 
+    @Query(
+        """
+        UPDATE exercise_variants
+        SET name = CASE equipmentType
+            WHEN 'BARBELL' THEN 'Barra'
+            WHEN 'DUMBBELL' THEN 'Mancuernas'
+            WHEN 'MACHINE' THEN 'Máquina'
+            WHEN 'CABLE' THEN 'Polea'
+            WHEN 'BODYWEIGHT' THEN 'Peso corporal'
+            WHEN 'MULTIPOWER' THEN 'Multipower'
+            WHEN 'KETTLEBELL' THEN 'Kettlebell'
+            WHEN 'ELASTIC_BAND' THEN 'Banda elástica'
+            ELSE 'Otro'
+        END
+        WHERE isBuiltIn = 1 AND name LIKE '% · fuente MIT'
+        """,
+    )
+    suspend fun normalizeBuiltInVariantNames(): Int
+
     @Transaction
     suspend fun seedBuiltInCatalog(entries: List<CatalogSeedEntry>, now: Instant) {
+        normalizeBuiltInVariantNames()
         val groups = mutableMapOf<String, Long>()
         entries.forEach { entry ->
             val groupId = groups[entry.muscleGroupName] ?: run {
@@ -130,6 +155,9 @@ interface ExerciseDao {
                             name = entry.exerciseName,
                             primaryMuscleGroupId = groupId,
                             description = entry.description,
+                            secondaryMuscles = entry.secondaryMuscles,
+                            instructions = entry.instructions,
+                            builtInGifUrl = entry.builtInGifUrl,
                             isBuiltIn = true,
                             createdAt = now,
                             updatedAt = now,
@@ -143,6 +171,9 @@ interface ExerciseDao {
                             name = entry.exerciseName,
                             primaryMuscleGroupId = groupId,
                             description = entry.description,
+                            secondaryMuscles = entry.secondaryMuscles,
+                            instructions = entry.instructions,
+                            builtInGifUrl = entry.builtInGifUrl,
                             isBuiltIn = true,
                             createdAt = now,
                             updatedAt = now,
@@ -154,11 +185,15 @@ interface ExerciseDao {
                         name = entry.exerciseName,
                         primaryMuscleGroupId = groupId,
                         description = entry.description,
+                        secondaryMuscles = entry.secondaryMuscles,
+                        instructions = entry.instructions,
+                        builtInGifUrl = entry.builtInGifUrl,
                         isBuiltIn = true,
                         createdAt = now,
                         updatedAt = now,
                     ),
                 )
+            entry.builtInGifUrl?.let { updateBuiltInGifUrl(baseId, it, now) }
             if (findExerciseVariantId(baseId, entry.variantName) == null) {
                 insertExerciseVariant(
                     ExerciseVariantEntity(

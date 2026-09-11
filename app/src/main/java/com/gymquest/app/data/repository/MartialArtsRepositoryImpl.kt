@@ -14,6 +14,7 @@ import java.time.Instant
 
 class MartialArtsRepositoryImpl(private val database: GymQuestDatabase) : MartialArtsRepository {
     private val dao = database.martialArtsDao()
+    override fun observePracticeCount() = dao.observePracticeCount()
     override suspend fun activeArts() = guarded { dao.getActiveMartialArts().map(::toArt) }
     override suspend fun activeStyles(artId: Long) = guarded {
         require(dao.getMartialArt(artId)?.isArchived == false) { "El arte marcial no existe o está archivado." }

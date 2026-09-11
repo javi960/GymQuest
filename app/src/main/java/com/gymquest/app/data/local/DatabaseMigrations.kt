@@ -108,6 +108,89 @@ object DatabaseMigrations {
         }
     }
 
+    val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE user_profiles ADD COLUMN defaultRestSeconds INTEGER NOT NULL DEFAULT 90",
+            )
+        }
+    }
+
+    /** Removes the retired weekly-routine feature and all of its local data. */
+    val MIGRATION_8_9 = object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("DROP TABLE IF EXISTS routine_planned_sets")
+            db.execSQL("DROP TABLE IF EXISTS routine_exercises")
+            db.execSQL("DROP TABLE IF EXISTS routine_days")
+            db.execSQL("DROP TABLE IF EXISTS workout_routines")
+            db.execSQL("DROP TABLE IF EXISTS workout_sets")
+            db.execSQL("DROP TABLE IF EXISTS workout_exercises")
+            db.execSQL("DROP TABLE IF EXISTS workout_sessions")
+            db.execSQL("DROP TABLE IF EXISTS exercise_mastery")
+            db.execSQL("DROP TABLE IF EXISTS character_stats")
+            db.execSQL("DROP TABLE IF EXISTS user_achievements")
+            db.execSQL("DROP TABLE IF EXISTS achievements")
+            db.execSQL("DROP TABLE IF EXISTS gym_machines")
+            db.execSQL("DROP TABLE IF EXISTS gyms")
+            db.execSQL("DROP TABLE IF EXISTS user_profiles")
+        }
+    }
+
+    /** Adds structured educational content to the offline exercise catalogue. */
+    val MIGRATION_9_10 = object : Migration(9, 10) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE exercise_bases ADD COLUMN secondaryMuscles TEXT")
+            db.execSQL("ALTER TABLE exercise_bases ADD COLUMN instructions TEXT")
+            db.execSQL("ALTER TABLE exercise_bases ADD COLUMN techniqueTips TEXT")
+            db.execSQL("ALTER TABLE exercise_bases ADD COLUMN commonMistakes TEXT")
+        }
+    }
+
+    /** Restores weekly planning without tying planned days to calendar dates. */
+    val MIGRATION_10_11 = object : Migration(10, 11) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS weekly_training_plans (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, name TEXT NOT NULL, notes TEXT, isArchived INTEGER NOT NULL, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS weekly_training_days (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, planId INTEGER NOT NULL, dayKey TEXT NOT NULL, label TEXT, sortOrder INTEGER NOT NULL, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL, FOREIGN KEY(planId) REFERENCES weekly_training_plans(id) ON DELETE CASCADE)")
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_weekly_training_days_planId_dayKey ON weekly_training_days(planId, dayKey)")
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_weekly_training_days_planId_sortOrder ON weekly_training_days(planId, sortOrder)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS training_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, planId INTEGER NOT NULL, plannedDayId INTEGER NOT NULL, planNameSnapshot TEXT NOT NULL, plannedDaySnapshot TEXT NOT NULL, startedAt TEXT NOT NULL, endedAt TEXT, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL, FOREIGN KEY(planId) REFERENCES weekly_training_plans(id), FOREIGN KEY(plannedDayId) REFERENCES weekly_training_days(id))")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_training_sessions_startedAt ON training_sessions(startedAt)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_training_sessions_planId ON training_sessions(planId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_training_sessions_plannedDayId ON training_sessions(plannedDayId)")
+        }
+    }
+
+    /** Stores a verified catalogue GIF URL separately from media chosen by the user. */
+    val MIGRATION_11_12 = object : Migration(11, 12) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE exercise_bases ADD COLUMN builtInGifUrl TEXT")
+        }
+    }
+    val MIGRATION_12_13 = object : Migration(12, 13) { override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS weekly_training_exercises (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, dayId INTEGER NOT NULL, exerciseVariantId INTEGER NOT NULL, sortOrder INTEGER NOT NULL, targetSets INTEGER NOT NULL, targetReps INTEGER, targetWeight REAL, restSeconds INTEGER, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL, FOREIGN KEY(dayId) REFERENCES weekly_training_days(id) ON DELETE CASCADE, FOREIGN KEY(exerciseVariantId) REFERENCES exercise_variants(id))")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_weekly_training_exercises_dayId_sortOrder ON weekly_training_exercises(dayId, sortOrder)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_weekly_training_exercises_exerciseVariantId ON weekly_training_exercises(exerciseVariantId)")
+    } }
+    val MIGRATION_13_14 = object : Migration(13, 14) { override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS training_session_exercises (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, sessionId INTEGER NOT NULL, exerciseVariantId INTEGER NOT NULL, sortOrder INTEGER NOT NULL, plannedSets INTEGER NOT NULL, plannedReps INTEGER, plannedWeight REAL, plannedRestSeconds INTEGER, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL, FOREIGN KEY(sessionId) REFERENCES training_sessions(id) ON DELETE CASCADE, FOREIGN KEY(exerciseVariantId) REFERENCES exercise_variants(id))")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_training_session_exercises_sessionId_sortOrder ON training_session_exercises(sessionId, sortOrder)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_training_session_exercises_exerciseVariantId ON training_session_exercises(exerciseVariantId)")
+    } }
+    val MIGRATION_14_15 = object : Migration(14, 15) { override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS training_session_sets (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, sessionExerciseId INTEGER NOT NULL, setNumber INTEGER NOT NULL, weight REAL NOT NULL, reps INTEGER NOT NULL, setType TEXT NOT NULL, completedAt TEXT NOT NULL, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL, FOREIGN KEY(sessionExerciseId) REFERENCES training_session_exercises(id) ON DELETE CASCADE)")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_training_session_sets_sessionExerciseId_setNumber ON training_session_sets(sessionExerciseId, setNumber)")
+    } }
+    /** Makes routine provenance optional for a true free session. */
+    val MIGRATION_15_16 = object : Migration(15, 16) { override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE training_sessions_new (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, planId INTEGER, plannedDayId INTEGER, planNameSnapshot TEXT NOT NULL, plannedDaySnapshot TEXT NOT NULL, startedAt TEXT NOT NULL, endedAt TEXT, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL, FOREIGN KEY(planId) REFERENCES weekly_training_plans(id), FOREIGN KEY(plannedDayId) REFERENCES weekly_training_days(id))")
+        db.execSQL("INSERT INTO training_sessions_new (id, planId, plannedDayId, planNameSnapshot, plannedDaySnapshot, startedAt, endedAt, createdAt, updatedAt) SELECT id, planId, plannedDayId, planNameSnapshot, plannedDaySnapshot, startedAt, endedAt, createdAt, updatedAt FROM training_sessions")
+        db.execSQL("DROP TABLE training_sessions")
+        db.execSQL("ALTER TABLE training_sessions_new RENAME TO training_sessions")
+        db.execSQL("CREATE INDEX index_training_sessions_startedAt ON training_sessions(startedAt)")
+        db.execSQL("CREATE INDEX index_training_sessions_planId ON training_sessions(planId)")
+        db.execSQL("CREATE INDEX index_training_sessions_plannedDayId ON training_sessions(plannedDayId)")
+    } }
+
     val INTEGRITY_CALLBACK = object : RoomDatabase.Callback() {
         override fun onCreate(db: SupportSQLiteDatabase) {
             createIntegrityTriggers(db)
@@ -246,7 +329,6 @@ object DatabaseMigrations {
     }
 
     private fun createIntegrityTriggers(database: SupportSQLiteDatabase) {
-        ACTIVE_SESSION_TRIGGERS.forEach(database::execSQL)
         CURRENT_RANK_TRIGGERS.forEach(database::execSQL)
         PRACTICE_ITEM_TARGET_TRIGGERS.forEach(database::execSQL)
         SECONDARY_MISSION_TARGET_TRIGGERS.forEach(database::execSQL)

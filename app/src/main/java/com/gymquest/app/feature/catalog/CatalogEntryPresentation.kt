@@ -11,7 +11,7 @@ fun ExerciseCatalogEntry.presentation(): CatalogEntryPresentation =
     if (variants.isEmpty()) {
         CatalogEntryPresentation(
             label = "Requiere variante",
-            detail = "Añade una variante con equipo para usar este ejercicio en una sesión.",
+            detail = "Añade una variante con equipamiento para completar la ficha del ejercicio.",
         )
     } else {
         CatalogEntryPresentation(

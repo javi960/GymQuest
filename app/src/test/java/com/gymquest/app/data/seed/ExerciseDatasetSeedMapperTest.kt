@@ -2,12 +2,11 @@ package com.gymquest.app.data.seed
 
 import com.gymquest.app.domain.model.enums.EquipmentType
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class ExerciseDatasetSeedMapperTest {
     @Test
-    fun mapper_keepsSpanishTrainingInformationAndDropsThirdPartyMedia() {
+    fun mapper_keepsSpanishTrainingInformationAndItsVerifiedGifReference() {
         val entry = ExerciseDatasetSeedMapper.map(
             ExerciseDatasetRecord(
                 id = "0001",
@@ -20,6 +19,7 @@ class ExerciseDatasetSeedMapperTest {
                 muscle_group = "hip flexors",
                 secondary_muscles = listOf("hip flexors", "lower back"),
                 instruction_steps = mapOf("es" to listOf("Túmbate.", "Eleva el tronco.")),
+                gif_url = "file:///android_asset/exercise_gifs/2gPfomN.gif",
             ),
         )
 
@@ -28,8 +28,29 @@ class ExerciseDatasetSeedMapperTest {
         assertEquals("Abdominal de tres cuartos", entry.exerciseName)
         assertEquals("3/4 sit-up", entry.sourceExerciseName)
         assert(entry.description.contains("Objetivo: abs."))
-        assert(entry.description.contains("Túmbate."))
-        assertFalse(entry.description.contains("gif"))
-        assertFalse(entry.description.contains("image"))
+        assertEquals("hip flexors, lower back", entry.secondaryMuscles)
+        assert(entry.instructions.orEmpty().contains("Túmbate."))
+        assertEquals(
+            "file:///android_asset/exercise_gifs/2gPfomN.gif",
+            entry.builtInGifUrl,
+        )
+    }
+
+    @Test
+    fun mapper_rejectsGifUrlsOutsideTheVerifiedCatalogue() {
+        val entry = ExerciseDatasetSeedMapper.map(
+            ExerciseDatasetRecord(
+                id = "0002",
+                name = "Exercise",
+                category = "chest",
+                body_part = "chest",
+                equipment = "body weight",
+                target = "pectorals",
+                muscle_group = "pectorals",
+                gif_url = "https://example.com/untrusted.gif",
+            ),
+        )
+
+        assertEquals(null, entry.builtInGifUrl)
     }
 }

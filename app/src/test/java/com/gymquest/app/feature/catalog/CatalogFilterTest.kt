@@ -23,6 +23,26 @@ class CatalogFilterTest {
         assertEquals(listOf(2L), entries.filterCatalog(query = "", muscleGroupId = null, equipmentType = EquipmentType.CABLE).map { it.exerciseBase.id })
     }
 
+    @Test
+    fun `matches educational exercise content`() {
+        val entry = ExerciseCatalogEntry(
+            exerciseBase = ExerciseBase(
+                id = 1,
+                name = "Press banca",
+                primaryMuscleGroupId = 10,
+                instructions = "Baja la barra de forma controlada.",
+                techniqueTips = "Mantén las escápulas estables.",
+                commonMistakes = "No rebotes la barra.",
+                createdAt = Instant.EPOCH,
+                updatedAt = Instant.EPOCH,
+            ),
+            variants = emptyList(),
+        )
+
+        assertEquals(listOf(1L), listOf(entry).filterCatalog("escápulas", null, null).map { it.exerciseBase.id })
+        assertEquals(listOf(1L), listOf(entry).filterCatalog("rebotes", null, null).map { it.exerciseBase.id })
+    }
+
     private fun entry(id: Long, name: String, groupId: Long, variantName: String? = null) = ExerciseCatalogEntry(
         exerciseBase = ExerciseBase(
             id = id,

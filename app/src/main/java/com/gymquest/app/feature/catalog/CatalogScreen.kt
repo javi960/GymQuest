@@ -97,11 +97,13 @@ internal fun CatalogContent(
                             QuestFilterChip("Todos", selectedEquipmentType == null, onClick = { selectedEquipmentType = null })
                             EquipmentType.entries.forEach { equipment ->
                                 val count = state.catalog.count { entry -> entry.variants.any { it.equipmentType == equipment } }
-                                QuestFilterChip(
-                                    "${equipment.catalogLabel()} ($count)",
-                                    selectedEquipmentType == equipment,
-                                    onClick = { selectedEquipmentType = equipment },
-                                )
+                                if (count > 0) {
+                                    QuestFilterChip(
+                                        "${equipment.catalogLabel()} ($count)",
+                                        selectedEquipmentType == equipment,
+                                        onClick = { selectedEquipmentType = equipment },
+                                    )
+                                }
                             }
                         }
                     }
@@ -151,7 +153,12 @@ internal fun CatalogContent(
                                     QuestSectionHeader("${group.name} (${entries.size})")
                                 }
                                 items(entries, key = { it.exerciseBase.id }) { entry ->
-                                    ExerciseSummaryCard(entry.exerciseBase.name, entry.variants.size) {
+                                    ExerciseSummaryCard(
+                                        name = entry.exerciseBase.name,
+                                        variants = entry.variants.size,
+                                        equipment = entry.variants.map { it.equipmentType }.distinct(),
+                                        hasVisualGuide = state.mediaByExerciseBaseId.containsKey(entry.exerciseBase.id),
+                                    ) {
                                         onOpenExerciseDetail(entry.exerciseBase.id)
                                     }
                                 }
@@ -172,7 +179,13 @@ internal fun CatalogContent(
 }
 
 @Composable
-private fun ExerciseSummaryCard(name: String, variants: Int, onClick: () -> Unit) {
+private fun ExerciseSummaryCard(
+    name: String,
+    variants: Int,
+    equipment: List<EquipmentType>,
+    hasVisualGuide: Boolean,
+    onClick: () -> Unit,
+) {
     QuestPanel(
         Modifier
             .semantics { contentDescription = "Abrir ficha del ejercicio $name" }
@@ -180,6 +193,10 @@ private fun ExerciseSummaryCard(name: String, variants: Int, onClick: () -> Unit
     ) {
         Text(name, style = MaterialTheme.typography.titleMedium)
         Text(if (variants == 1) "1 variante configurada" else "$variants variantes configuradas", style = MaterialTheme.typography.bodySmall)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            equipment.forEach { type -> QuestFilterChip(type.catalogLabel(), selected = false, onClick = onClick) }
+            if (hasVisualGuide) QuestFilterChip("Guía visual", selected = false, onClick = onClick)
+        }
     }
 }
 

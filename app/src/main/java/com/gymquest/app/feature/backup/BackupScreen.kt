@@ -75,7 +75,7 @@ internal fun BackupContent(
             item {
                 MissionCard(
                     title = "Copia de seguridad JSON",
-                    description = "Incluye tus datos locales de entrenamiento. No incluye multimedia ni registros de diagnóstico.",
+                    description = "Incluye tus datos locales de Dojo y Catálogo. No incluye multimedia ni registros de diagnóstico.",
                     reward = "Formato versionado para restauración futura",
                     action = {
                         QuestActionButton(
@@ -93,7 +93,7 @@ internal fun BackupContent(
     if (showConfirmation) {
         QuestConfirmationDialog(
             title = "Exportar copia de seguridad",
-            message = "Este archivo contiene datos personales de entrenamiento.",
+            message = "Este archivo contiene tus datos locales de Dojo y Catálogo.",
             confirmLabel = "Elegir ubicación y exportar",
             confirmAction = QuestAction.Export,
             onConfirm = { showConfirmation = false; onRequestDocument() },

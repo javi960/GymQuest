@@ -23,10 +23,10 @@ data class QuestNavigationDestination(
 
 val questPrimaryDestinations = listOf(
     QuestNavigationDestination("home", "Inicio", QuestAction.Home),
-    QuestNavigationDestination("session", "Sesión", QuestAction.Session),
-    QuestNavigationDestination("history", "Historial", QuestAction.History),
     QuestNavigationDestination("martial_arts", "Dojo", QuestAction.Dojo),
     QuestNavigationDestination("catalog", "Catálogo", QuestAction.Catalog),
+    QuestNavigationDestination("routines", "Rutinas", QuestAction.Routine),
+    QuestNavigationDestination("sessions", "Sesiones", QuestAction.Session),
 )
 
 const val MAX_BOTTOM_DESTINATIONS = 5

@@ -118,15 +118,23 @@ class ExerciseRepositoryImpl(
         exerciseBase: ExerciseBase,
         requireExistingId: Boolean,
         operation: suspend () -> T,
-    ): AppResult<T> =
-        validate(
+    ): AppResult<T> {
+        val validationError = listOf(
             TextValidators.required(exerciseBase.name, "name"),
             TextValidators.optional(exerciseBase.description, "description"),
+            TextValidators.optional(exerciseBase.secondaryMuscles, "secondaryMuscles", maxLength = 500),
+            TextValidators.optional(exerciseBase.instructions, "instructions", maxLength = 4_000),
+            TextValidators.optional(exerciseBase.techniqueTips, "techniqueTips", maxLength = 2_000),
+            TextValidators.optional(exerciseBase.commonMistakes, "commonMistakes", maxLength = 2_000),
+        ).filterIsInstance<ValidationResult.Invalid>().firstOrNull()
+        if (validationError != null) return AppResult.Failure(AppError.Validation(validationError.errors.first().message))
+        return validate(
             (exerciseBase.primaryMuscleGroupId > 0) to "El ejercicio debe tener un grupo muscular principal.",
             (!requireExistingId || exerciseBase.id > 0) to "El ejercicio debe existir para actualizarse.",
             (!exerciseBase.updatedAt.isBefore(exerciseBase.createdAt)) to "La fecha de actualizacion no puede ser anterior a la de creacion.",
             operation = operation,
         )
+    }
 
     private suspend fun <T> validateExerciseVariant(
         exerciseVariant: ExerciseVariant,

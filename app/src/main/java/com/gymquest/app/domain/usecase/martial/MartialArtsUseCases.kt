@@ -9,6 +9,7 @@ import com.gymquest.app.domain.model.enums.MediaOwnerType
 import java.time.Instant
 
 class GetActiveMartialArtsUseCase(private val repository: MartialArtsRepository) { suspend operator fun invoke() = repository.activeArts() }
+class ObserveMartialPracticeCountUseCase(private val repository: MartialArtsRepository) { operator fun invoke() = repository.observePracticeCount() }
 class GetActiveMartialStylesUseCase(private val repository: MartialArtsRepository) { suspend operator fun invoke(artId: Long) = repository.activeStyles(artId) }
 class GetActiveMartialTechniquesUseCase(private val repository: MartialArtsRepository) { suspend operator fun invoke(styleId: Long) = repository.activeTechniques(styleId) }
 class GetActiveMartialStancesUseCase(private val repository: MartialArtsRepository) { suspend operator fun invoke(styleId: Long) = repository.activeStances(styleId) }

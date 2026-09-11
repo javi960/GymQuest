@@ -19,9 +19,13 @@ import com.gymquest.app.data.local.entity.MartialTechniqueEntity
 import com.gymquest.app.data.local.relation.MartialContentWithTechniques
 import com.gymquest.app.data.local.relation.MartialPracticeSessionWithItems
 import com.gymquest.app.data.local.relation.MartialStyleWithContent
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MartialArtsDao {
+    @Query("SELECT COUNT(*) FROM martial_practice_sessions")
+    fun observePracticeCount(): Flow<Long>
+
     @Query("SELECT * FROM martial_belt_settings WHERE id = 1 LIMIT 1")
     suspend fun getBeltSettings(): MartialBeltSettingsEntity?
 

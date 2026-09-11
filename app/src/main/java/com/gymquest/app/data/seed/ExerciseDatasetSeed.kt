@@ -23,9 +23,10 @@ import kotlinx.serialization.json.jsonPrimitive
 
 private const val SEED_ASSET = "seed/exercises-dataset-v1.json"
 private const val DATASET_SCHEMA_VERSION = 1
-private const val SEED_VERSION = 3
+private const val SEED_VERSION = 6
 private const val PREFERENCES_NAME = "catalog_seed"
 private const val VERSION_KEY = "exercise_dataset_version"
+private const val EXERCISE_LIBRARY_GIF_PREFIX = "file:///android_asset/exercise_gifs/"
 
 internal data class ExerciseDatasetSeed(
     val schemaVersion: Int,
@@ -46,6 +47,7 @@ internal data class ExerciseDatasetRecord(
     val muscle_group: String,
     val secondary_muscles: List<String> = emptyList(),
     val instruction_steps: Map<String, List<String>> = emptyMap(),
+    val gif_url: String? = null,
 )
 
 data class CatalogSeedEntry(
@@ -53,6 +55,9 @@ data class CatalogSeedEntry(
     val sourceExerciseName: String,
     val muscleGroupName: String,
     val description: String,
+    val secondaryMuscles: String?,
+    val instructions: String?,
+    val builtInGifUrl: String?,
     val variantName: String,
     val equipmentType: com.gymquest.app.domain.model.enums.EquipmentType,
 )
@@ -77,13 +82,27 @@ internal object ExerciseDatasetSeedMapper {
             muscleGroupName = normalized.bodyPartFilter,
             description = buildString {
                 append("Objetivo: ${record.target}. Grupo muscular: ${normalized.primaryMuscleFilter}. ")
-                append("Secundarios: $secondary.\n\n")
-                append(normalized.instructions.joinToString(separator = "\n") { "• $it" })
+                append("Consulta la guía paso a paso para la ejecución.")
             },
-            variantName = "${normalized.equipmentType.name.lowercase().replace('_', ' ')} · fuente MIT",
+            secondaryMuscles = secondary.takeUnless { it == "No especificados" },
+            instructions = normalized.instructions.joinToString(separator = "\n").ifBlank { null },
+            builtInGifUrl = record.gif_url?.takeIf(::isBundledExerciseLibraryGifUrl),
+            variantName = normalized.equipmentType.displayName(),
             equipmentType = normalized.equipmentType,
         )
     }
+}
+
+private fun com.gymquest.app.domain.model.enums.EquipmentType.displayName() = when (this) {
+    com.gymquest.app.domain.model.enums.EquipmentType.BARBELL -> "Barra"
+    com.gymquest.app.domain.model.enums.EquipmentType.DUMBBELL -> "Mancuernas"
+    com.gymquest.app.domain.model.enums.EquipmentType.MACHINE -> "Máquina"
+    com.gymquest.app.domain.model.enums.EquipmentType.CABLE -> "Polea"
+    com.gymquest.app.domain.model.enums.EquipmentType.BODYWEIGHT -> "Peso corporal"
+    com.gymquest.app.domain.model.enums.EquipmentType.MULTIPOWER -> "Multipower"
+    com.gymquest.app.domain.model.enums.EquipmentType.KETTLEBELL -> "Kettlebell"
+    com.gymquest.app.domain.model.enums.EquipmentType.ELASTIC_BAND -> "Banda elástica"
+    com.gymquest.app.domain.model.enums.EquipmentType.OTHER -> "Otro"
 }
 
 private fun JsonObject.toSeed(): ExerciseDatasetSeed = ExerciseDatasetSeed(
@@ -107,11 +126,16 @@ private fun JsonObject.toRecord(): ExerciseDatasetRecord = ExerciseDatasetRecord
     instruction_steps = getValue("instruction_steps").jsonObject.mapValues { (_, value) ->
         value.jsonArray.strings()
     },
+    gif_url = get("gif_url")?.jsonPrimitive?.content,
 )
 
 private fun JsonObject.string(name: String): String = getValue(name).jsonPrimitive.content
 
 private fun JsonArray.strings(): List<String> = map { it.jsonPrimitive.content }
+
+private fun isBundledExerciseLibraryGifUrl(value: String): Boolean =
+    value.startsWith(EXERCISE_LIBRARY_GIF_PREFIX) &&
+        value.endsWith(".gif")
 
 /** Imports only MIT metadata/instructions. The source media is intentionally absent from the asset. */
 class ExerciseCatalogSeedRepository(

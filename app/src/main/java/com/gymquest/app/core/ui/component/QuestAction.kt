@@ -7,6 +7,7 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -69,10 +70,9 @@ enum class QuestAction(
     Resume("Reanudar", "Reanudar", R.string.action_resume, R.string.action_resume_description, QuestActionRole.Primary),
     Finish("Completar", "Completar sesión", R.string.action_finish, R.string.action_finish_description, QuestActionRole.Positive),
     Home("Inicio", "Ir a inicio", R.string.action_home, R.string.action_home_description, QuestActionRole.Secondary),
-    Session("Sesión", "Ir a sesión", R.string.action_session, R.string.action_session_description, QuestActionRole.Primary),
     Catalog("Catálogo", "Ir a catálogo", R.string.action_catalog, R.string.action_catalog_description, QuestActionRole.Secondary),
-    History("Historial", "Ir a historial", R.string.action_history, R.string.action_history_description, QuestActionRole.Secondary),
-    Progress("Progreso", "Ir a progreso", R.string.action_progress, R.string.action_progress_description, QuestActionRole.Secondary),
+    Routine("Rutinas", "Ir a rutinas", R.string.action_routine, R.string.action_routine_description, QuestActionRole.Secondary),
+    Session("Sesiones", "Ir a sesiones", R.string.action_session, R.string.action_session_description, QuestActionRole.Secondary),
     Dojo("Dojo", "Ir al dojo", R.string.action_dojo, R.string.action_dojo_description, QuestActionRole.Secondary),
     Settings("Ajustes", "Ir a ajustes", R.string.action_settings, R.string.action_settings_description, QuestActionRole.Secondary),
     MartialArts("Artes marciales", "Ir a artes marciales", R.string.action_martial_arts, R.string.action_martial_arts_description, QuestActionRole.Secondary),
@@ -104,10 +104,9 @@ fun QuestAction.icon(): ImageVector =
         QuestAction.Resume -> Icons.Filled.Replay
         QuestAction.Finish -> Icons.Filled.Check
         QuestAction.Home -> Icons.Filled.Home
-        QuestAction.Session -> Icons.Filled.FitnessCenter
         QuestAction.Catalog -> Icons.AutoMirrored.Filled.MenuBook
-        QuestAction.History -> Icons.Filled.History
-        QuestAction.Progress -> Icons.AutoMirrored.Filled.TrendingUp
+        QuestAction.Routine -> Icons.Filled.Assignment
+        QuestAction.Session -> Icons.Filled.FitnessCenter
         QuestAction.Dojo -> Icons.Filled.SportsMartialArts
         QuestAction.Settings -> Icons.Filled.Settings
         QuestAction.MartialArts -> Icons.Filled.SportsMartialArts

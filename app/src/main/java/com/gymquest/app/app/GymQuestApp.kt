@@ -4,14 +4,12 @@ import android.app.Application
 import android.util.Log
 import com.gymquest.app.data.local.GymQuestDatabase
 import com.gymquest.app.data.repository.ExerciseRepositoryImpl
-import com.gymquest.app.data.repository.ProgressRepositoryImpl
-import com.gymquest.app.data.repository.WorkoutRepositoryImpl
-import com.gymquest.app.data.repository.RoutineRepositoryImpl
 import com.gymquest.app.data.repository.BackupRepositoryImpl
 import com.gymquest.app.data.repository.MartialArtsRepositoryImpl
 import com.gymquest.app.data.repository.MartialReminderRepositoryImpl
 import com.gymquest.app.data.repository.MartialMiniGameRepositoryImpl
 import com.gymquest.app.data.repository.MediaRepositoryImpl
+import com.gymquest.app.data.repository.WeeklyTrainingRepository
 import com.gymquest.app.data.seed.ExerciseCatalogSeedRepository
 import com.gymquest.app.data.reminder.AlarmManagerReminderScheduler
 import com.gymquest.app.data.reminder.MartialReminderCoordinator
@@ -25,32 +23,12 @@ import com.gymquest.app.domain.usecase.catalog.UpdateExerciseBaseUseCase
 import com.gymquest.app.domain.usecase.catalog.UpdateExerciseVariantUseCase
 import com.gymquest.app.domain.usecase.catalog.ArchiveExerciseBaseUseCase
 import com.gymquest.app.domain.usecase.catalog.ArchiveExerciseVariantUseCase
-import com.gymquest.app.domain.usecase.catalog.GetVariantLastPerformanceUseCase
 import com.gymquest.app.domain.usecase.catalog.ObserveActiveExerciseVariantsUseCase
 import com.gymquest.app.domain.usecase.catalog.ObserveExerciseCatalogUseCase
 import com.gymquest.app.domain.usecase.catalog.ObserveMuscleGroupsUseCase
 import com.gymquest.app.domain.usecase.catalog.ObserveExerciseBaseMediaUseCase
 import com.gymquest.app.domain.usecase.catalog.RemoveExerciseBaseMediaUseCase
 import com.gymquest.app.domain.usecase.catalog.ReplaceExerciseBaseMediaUseCase
-import com.gymquest.app.domain.usecase.session.AddExerciseToSessionUseCase
-import com.gymquest.app.domain.usecase.session.CancelWorkoutSessionUseCase
-import com.gymquest.app.domain.usecase.session.CompleteWorkoutSessionUseCase
-import com.gymquest.app.domain.usecase.session.DeleteWorkoutSetUseCase
-import com.gymquest.app.domain.usecase.session.ObserveActiveSessionUseCase
-import com.gymquest.app.domain.usecase.session.ObserveSessionDetailUseCase
-import com.gymquest.app.domain.usecase.session.ObserveSessionHistoryUseCase
-import com.gymquest.app.domain.usecase.session.ResolveRestBeforeNextSetUseCase
-import com.gymquest.app.domain.usecase.session.SaveWorkoutSetUseCase
-import com.gymquest.app.domain.usecase.session.StartRestAfterSetUseCase
-import com.gymquest.app.domain.usecase.session.StartWorkoutSessionUseCase
-import com.gymquest.app.domain.usecase.session.UpdateWorkoutSetUseCase
-import com.gymquest.app.domain.usecase.routine.ObserveRoutinesUseCase
-import com.gymquest.app.domain.usecase.routine.SaveRoutineUseCase
-import com.gymquest.app.domain.usecase.routine.StartSessionFromRoutineDayUseCase
-import com.gymquest.app.domain.usecase.progress.ApplyWorkoutProgressUseCase
-import com.gymquest.app.domain.usecase.progress.ObserveProgressSummaryUseCase
-import com.gymquest.app.domain.usecase.progress.ObserveVariantHistoryUseCase
-import com.gymquest.app.domain.usecase.progress.RecalculateProgressUseCase
 import com.gymquest.app.domain.usecase.backup.BuildBackupSnapshotUseCase
 import com.gymquest.app.domain.usecase.backup.ExportBackupJsonUseCase
 import com.gymquest.app.domain.usecase.backup.ValidateBackupSchemaUseCase
@@ -78,14 +56,12 @@ class AppContainer(application: Application) {
             }
         }
     }
-    private val workoutRepository = WorkoutRepositoryImpl(database)
-    private val routineRepository = RoutineRepositoryImpl(database)
-    private val progressRepository = ProgressRepositoryImpl(database)
     private val martialArtsRepository = MartialArtsRepositoryImpl(database)
     val martialReminderRepository = MartialReminderRepositoryImpl(database.martialReminderDao())
     val martialReminderCoordinator = MartialReminderCoordinator(database, AlarmManagerReminderScheduler(application), NotificationPermissionManager(application), SystemClockProvider)
     private val martialMiniGameRepository = MartialMiniGameRepositoryImpl(database)
     private val backupRepository = BackupRepositoryImpl(database)
+    val weeklyTrainingRepository = WeeklyTrainingRepository(database.weeklyTrainingDao())
 
     val createMuscleGroupUseCase = CreateMuscleGroupUseCase(exerciseRepository)
     val observeMuscleGroupsUseCase = ObserveMuscleGroupsUseCase(exerciseRepository)
@@ -100,27 +76,8 @@ class AppContainer(application: Application) {
     val replaceExerciseBaseMediaUseCase = ReplaceExerciseBaseMediaUseCase(mediaRepository)
     val removeExerciseBaseMediaUseCase = RemoveExerciseBaseMediaUseCase(mediaRepository)
     val observeExerciseBaseMediaUseCase = ObserveExerciseBaseMediaUseCase(mediaRepository)
-    val getVariantLastPerformanceUseCase = GetVariantLastPerformanceUseCase(workoutRepository)
-    val startWorkoutSessionUseCase = StartWorkoutSessionUseCase(workoutRepository)
-    val cancelWorkoutSessionUseCase = CancelWorkoutSessionUseCase(workoutRepository)
-    val completeWorkoutSessionUseCase = CompleteWorkoutSessionUseCase(workoutRepository)
-    val addExerciseToSessionUseCase = AddExerciseToSessionUseCase(workoutRepository)
-    val saveWorkoutSetUseCase = SaveWorkoutSetUseCase(workoutRepository)
-    val updateWorkoutSetUseCase = UpdateWorkoutSetUseCase(workoutRepository)
-    val deleteWorkoutSetUseCase = DeleteWorkoutSetUseCase(workoutRepository)
-    val observeActiveSessionUseCase = ObserveActiveSessionUseCase(workoutRepository)
-    val observeSessionDetailUseCase = ObserveSessionDetailUseCase(workoutRepository)
-    val observeSessionHistoryUseCase = ObserveSessionHistoryUseCase(workoutRepository)
-    val startRestAfterSetUseCase = StartRestAfterSetUseCase()
-    val resolveRestBeforeNextSetUseCase = ResolveRestBeforeNextSetUseCase()
-    val observeProgressSummaryUseCase = ObserveProgressSummaryUseCase(progressRepository)
-    val observeVariantHistoryUseCase = ObserveVariantHistoryUseCase(workoutRepository)
-    private val recalculateProgressUseCase = RecalculateProgressUseCase(workoutRepository, progressRepository)
-    val applyWorkoutProgressUseCase = ApplyWorkoutProgressUseCase(recalculateProgressUseCase)
-    val observeRoutinesUseCase = ObserveRoutinesUseCase(routineRepository)
-    val saveRoutineUseCase = SaveRoutineUseCase(routineRepository)
-    val startSessionFromRoutineDayUseCase = StartSessionFromRoutineDayUseCase(routineRepository)
     val getActiveMartialArtsUseCase = GetActiveMartialArtsUseCase(martialArtsRepository)
+    val observeMartialPracticeCountUseCase = ObserveMartialPracticeCountUseCase(martialArtsRepository)
     val getActiveMartialStylesUseCase = GetActiveMartialStylesUseCase(martialArtsRepository)
     val getActiveMartialTechniquesUseCase = GetActiveMartialTechniquesUseCase(martialArtsRepository)
     val getActiveMartialStancesUseCase = GetActiveMartialStancesUseCase(martialArtsRepository)

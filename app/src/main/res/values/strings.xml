@@ -1,4 +1,6 @@
 <resources>
+    <string name="action_routine">Rutinas</string>
+    <string name="action_routine_description">Ir a rutinas</string>
     <string name="app_name">GymQuest</string>
     <string name="action_add">Añadir</string><string name="action_add_description">Añadir elemento</string>
     <string name="action_edit">Editar</string><string name="action_edit_description">Editar elemento</string>
@@ -18,8 +20,9 @@
     <string name="action_resume">Reanudar</string><string name="action_resume_description">Reanudar</string>
     <string name="action_finish">Completar</string><string name="action_finish_description">Completar sesión</string>
     <string name="action_home">Inicio</string><string name="action_home_description">Ir a inicio</string>
-    <string name="action_session">Sesión</string><string name="action_session_description">Ir a sesión</string>
+    <string name="action_session">Sesiones</string><string name="action_session_description">Ir a sesiones</string>
     <string name="action_catalog">Catálogo</string><string name="action_catalog_description">Ir a catálogo</string>
+    <string name="action_routines">Rutinas</string><string name="action_routines_description">Ir a rutinas</string>
     <string name="action_history">Historial</string><string name="action_history_description">Ir a historial</string>
     <string name="action_progress">Progreso</string><string name="action_progress_description">Ir a progreso</string>
     <string name="action_dojo">Dojo</string><string name="action_dojo_description">Ir al dojo</string>

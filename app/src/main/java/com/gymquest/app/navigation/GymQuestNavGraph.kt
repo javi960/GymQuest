@@ -20,7 +20,7 @@ import com.gymquest.app.feature.catalog.CatalogScreen
 import com.gymquest.app.feature.catalog.CatalogDetailScreen
 import com.gymquest.app.feature.catalog.AddExerciseScreen
 import com.gymquest.app.feature.catalog.AddMuscleGroupScreen
-import com.gymquest.app.feature.history.HistoryScreen
+import com.gymquest.app.feature.catalog.AddExerciseVariantScreen
 import com.gymquest.app.feature.home.HomeScreen
 import com.gymquest.app.feature.martialarts.MartialArtsHomeScreen
 import com.gymquest.app.feature.martialarts.MartialArtScreen
@@ -31,16 +31,13 @@ import com.gymquest.app.feature.martialarts.MartialTechniqueDetailScreen
 import com.gymquest.app.feature.martialarts.MartialTechniqueCreateScreen
 import com.gymquest.app.feature.martialarts.MartialStanceDetailScreen
 import com.gymquest.app.feature.martialarts.MartialStanceCreateScreen
-import com.gymquest.app.feature.session.SessionScreen
-import com.gymquest.app.feature.routine.RoutineScreen
-import com.gymquest.app.feature.routine.RoutineViewModel
-import com.gymquest.app.core.time.SystemClockProvider
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.gymquest.app.feature.settings.SettingsScreen
 import com.gymquest.app.feature.backup.BackupScreen
+import com.gymquest.app.feature.routine.WeeklyPlansScreen
+import com.gymquest.app.feature.session.ActiveTrainingSessionScreen
+import com.gymquest.app.feature.session.SessionsScreen
+import com.gymquest.app.feature.session.SessionExerciseCatalogScreen
+import com.gymquest.app.feature.routine.RoutineExerciseCatalogScreen
 
 @Composable
 fun GymQuestNavGraph() {
@@ -54,8 +51,13 @@ fun GymQuestNavGraph() {
             NavRoutes.MARTIAL_CREATE_CONTENT, NavRoutes.MARTIAL_TECHNIQUE, NavRoutes.MARTIAL_CREATE_TECHNIQUE,
             NavRoutes.MARTIAL_STANCE, NavRoutes.MARTIAL_CREATE_STANCE -> "Artes marciales"
             NavRoutes.CATALOG_DETAIL -> "Ejercicio"
+            NavRoutes.ROUTINES -> "Rutinas"
+            NavRoutes.SESSIONS -> "Sesiones"
+            NavRoutes.SESSION_EXERCISE_CATALOG -> "Elegir ejercicio"
+            NavRoutes.ROUTINE_EXERCISE_CATALOG -> "Elegir ejercicio"
             NavRoutes.ADD_MUSCLE_GROUP -> "Nuevo grupo muscular"
             NavRoutes.ADD_EXERCISE -> "Nuevo ejercicio"
+            NavRoutes.ADD_VARIANT -> "Nueva variante"
             NavRoutes.SETTINGS -> "Ajustes"
             NavRoutes.BACKUP -> "Backup"
             else -> "GymQuest"
@@ -100,39 +102,8 @@ fun GymQuestNavGraph() {
     ) {
         composable(NavRoutes.HOME) {
             HomeScreen(
-                onOpenSession = { navController.navigate(NavRoutes.SESSION) },
+                onOpenDojo = { navController.navigate(NavRoutes.MARTIAL_ARTS) },
                 onOpenCatalog = { navController.navigate(NavRoutes.CATALOG) },
-            )
-        }
-
-        composable(NavRoutes.SESSION) {
-            SessionScreen(onOpenRoutines = { navController.navigate(NavRoutes.ROUTINES) })
-        }
-
-        composable(NavRoutes.ROUTINES) {
-            val application = LocalContext.current.applicationContext as com.gymquest.app.app.GymQuestApp
-            val container = application.appContainer
-            val routineViewModel: RoutineViewModel = viewModel(factory = viewModelFactory {
-                initializer {
-                    RoutineViewModel(
-                        observeRoutines = container.observeRoutinesUseCase,
-                        observeExerciseCatalog = container.observeExerciseCatalogUseCase,
-                        observeMuscleGroups = container.observeMuscleGroupsUseCase,
-                        saveRoutine = container.saveRoutineUseCase,
-                        startSessionFromRoutineDay = container.startSessionFromRoutineDayUseCase,
-                        clock = SystemClockProvider,
-                    )
-                }
-            })
-            RoutineScreen(
-                stateHolder = routineViewModel,
-                onUseRoutineDay = { routine, weekday ->
-                    routineViewModel.useRoutineDay(routine, weekday) { started ->
-                        if (started) navController.navigate(NavRoutes.SESSION) {
-                            popUpTo(NavRoutes.SESSION) { inclusive = false }
-                        }
-                    }
-                },
             )
         }
 
@@ -144,17 +115,37 @@ fun GymQuestNavGraph() {
             )
         }
 
+        composable(NavRoutes.ROUTINES) { WeeklyPlansScreen(onConfigureExercises = { navController.navigate(NavRoutes.routineExerciseCatalog(it)) }) }
+        composable(NavRoutes.SESSIONS) { SessionsScreen(onOpenSession = { navController.navigate(NavRoutes.activeTrainingSession(it)) }) }
+        composable(NavRoutes.ACTIVE_TRAINING_SESSION) { entry ->
+            val id = entry.arguments?.getString("sessionId")?.toLongOrNull() ?: return@composable
+            ActiveTrainingSessionScreen(
+                sessionId = id,
+                onOpenExerciseCatalog = { navController.navigate(NavRoutes.sessionExerciseCatalog(id)) },
+                onFinished = { navController.popBackStack() },
+            )
+        }
+        composable(NavRoutes.SESSION_EXERCISE_CATALOG) { entry ->
+            val sessionId = entry.arguments?.getString("sessionId")?.toLongOrNull() ?: return@composable
+            SessionExerciseCatalogScreen(sessionId, onClose = { navController.popBackStack() })
+        }
+        composable(NavRoutes.ROUTINE_EXERCISE_CATALOG) { entry ->
+            val dayId = entry.arguments?.getString("dayId")?.toLongOrNull() ?: return@composable
+            RoutineExerciseCatalogScreen(dayId, onClose = { navController.popBackStack() })
+        }
+
         composable(NavRoutes.CATALOG_DETAIL) { entry ->
             val id = entry.arguments?.getString("exerciseBaseId")?.toLongOrNull() ?: return@composable
-            CatalogDetailScreen(id)
+            CatalogDetailScreen(id, onAddVariant = { navController.navigate(NavRoutes.addVariant(it)) })
         }
 
         composable(NavRoutes.ADD_MUSCLE_GROUP) { AddMuscleGroupScreen(onNavigateBack = { navController.popBackStack() }) }
         composable(NavRoutes.ADD_EXERCISE) { AddExerciseScreen(onNavigateBack = { navController.popBackStack() }) }
-
-        composable(NavRoutes.HISTORY) {
-            HistoryScreen()
+        composable(NavRoutes.ADD_VARIANT) { entry ->
+            val exerciseBaseId = entry.arguments?.getString("exerciseBaseId")?.toLongOrNull() ?: return@composable
+            AddExerciseVariantScreen(exerciseBaseId, onNavigateBack = { navController.popBackStack() })
         }
+
 
         composable(NavRoutes.MARTIAL_ARTS) {
             MartialArtsHomeScreen(onOpenArt = { navController.navigate(NavRoutes.martialArt(it)) })

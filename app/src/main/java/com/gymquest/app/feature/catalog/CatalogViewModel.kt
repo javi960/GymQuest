@@ -153,7 +153,15 @@ class CatalogViewModel(
         }
     }
 
-    fun addExerciseBase(name: String, description: String?, mediaDraft: ExerciseMediaDraft? = null) {
+    fun addExerciseBase(
+        name: String,
+        description: String?,
+        secondaryMuscles: String? = null,
+        instructions: String? = null,
+        techniqueTips: String? = null,
+        commonMistakes: String? = null,
+        mediaDraft: ExerciseMediaDraft? = null,
+    ) {
         val muscleGroupId = _uiState.value.selectedMuscleGroupId
         if (muscleGroupId == null) {
             _uiState.update { it.copy(feedback = "Crea primero un grupo muscular.") }
@@ -166,6 +174,10 @@ class CatalogViewModel(
                     name = name,
                     primaryMuscleGroupId = muscleGroupId,
                     description = description?.takeIf(String::isNotBlank),
+                    secondaryMuscles = secondaryMuscles?.takeIf(String::isNotBlank),
+                    instructions = instructions?.takeIf(String::isNotBlank),
+                    techniqueTips = techniqueTips?.takeIf(String::isNotBlank),
+                    commonMistakes = commonMistakes?.takeIf(String::isNotBlank),
                     createdAt = now,
                     updatedAt = now,
                 ),

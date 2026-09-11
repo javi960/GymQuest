@@ -3,8 +3,10 @@ package com.gymquest.app.domain.repository
 import com.gymquest.app.core.result.AppResult
 import com.gymquest.app.domain.model.*
 import java.time.Instant
+import kotlinx.coroutines.flow.Flow
 
 interface MartialArtsRepository {
+    fun observePracticeCount(): Flow<Long>
     suspend fun activeArts(): AppResult<List<MartialArt>>
     suspend fun activeStyles(artId: Long): AppResult<List<MartialStyle>>
     suspend fun activeTechniques(styleId: Long): AppResult<List<MartialTechnique>>

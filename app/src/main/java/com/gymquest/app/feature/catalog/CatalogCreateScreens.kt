@@ -32,6 +32,8 @@ import com.gymquest.app.core.ui.component.QuestScreen
 import com.gymquest.app.core.ui.component.QuestSectionHeader
 import com.gymquest.app.core.ui.component.QuestTextField
 import com.gymquest.app.domain.model.enums.MediaType
+import com.gymquest.app.domain.model.enums.EquipmentType
+import com.gymquest.app.domain.model.enums.WeightComparisonType
 
 @Composable
 fun AddMuscleGroupScreen(onNavigateBack: () -> Unit) {
@@ -57,13 +59,17 @@ fun AddExerciseScreen(onNavigateBack: () -> Unit) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
+    var secondaryMuscles by remember { mutableStateOf("") }
+    var instructions by remember { mutableStateOf("") }
+    var techniqueTips by remember { mutableStateOf("") }
+    var commonMistakes by remember { mutableStateOf("") }
     var guide by remember { mutableStateOf<ExerciseMediaDraft?>(null) }
     var pickerError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val mediaLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val mimeType = uri?.let { context.contentResolver.getType(it)?.lowercase() }
         val mediaType = when {
-            mimeType == "image/gif" -> MediaType.IMAGE
+            mimeType == "image/gif" -> MediaType.GIF
             mimeType?.startsWith("video/") == true -> MediaType.VIDEO
             else -> null
         }
@@ -96,6 +102,10 @@ fun AddExerciseScreen(onNavigateBack: () -> Unit) {
             }
             QuestTextField(name, { name = it }, "Ejercicio base", singleLine = true)
             QuestTextField(description, { description = it }, "Descripción opcional")
+            QuestTextField(secondaryMuscles, { secondaryMuscles = it }, "Músculos secundarios (separados por comas)")
+            QuestTextField(instructions, { instructions = it }, "Pasos de ejecución (uno por línea)")
+            QuestTextField(techniqueTips, { techniqueTips = it }, "Consejos de técnica")
+            QuestTextField(commonMistakes, { commonMistakes = it }, "Errores comunes")
             guide?.let {
                 Text("Guía seleccionada: ${it.title}", style = MaterialTheme.typography.bodySmall)
                 QuestButton("Quitar guía", { guide = null }, action = QuestAction.Delete)
@@ -106,7 +116,59 @@ fun AddExerciseScreen(onNavigateBack: () -> Unit) {
                 QuestAction.Add,
                 label = "Crear ejercicio",
                 enabled = state.selectedMuscleGroupId != null,
-                onClick = { viewModel.addExerciseBase(name, description, guide) },
+                onClick = {
+                    viewModel.addExerciseBase(
+                        name = name,
+                        description = description,
+                        secondaryMuscles = secondaryMuscles,
+                        instructions = instructions,
+                        techniqueTips = techniqueTips,
+                        commonMistakes = commonMistakes,
+                        mediaDraft = guide,
+                    )
+                },
+            )
+            QuestButton("Cancelar", onNavigateBack, action = QuestAction.Back)
+        }
+    }
+}
+
+@Composable
+fun AddExerciseVariantScreen(exerciseBaseId: Long, onNavigateBack: () -> Unit) {
+    val viewModel = rememberCatalogViewModel()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var name by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+    var equipment by remember { mutableStateOf(EquipmentType.OTHER) }
+    var weightType by remember { mutableStateOf(WeightComparisonType.TOTAL_WEIGHT) }
+
+    LaunchedEffect(state.lastCreation) {
+        if (state.lastCreation == CatalogCreation.Variant(exerciseBaseId)) onNavigateBack()
+    }
+
+    CatalogFormLayout("Nueva variante") {
+        QuestPanel {
+            QuestTextField(name, { name = it }, "Nombre de variante", singleLine = true)
+            QuestTextField(notes, { notes = it }, "Notas de variante")
+            VariantConfigurationSelector(
+                equipment = equipment,
+                weight = weightType,
+                onEquipment = { equipment = it },
+                onWeight = { weightType = it },
+            )
+            state.feedback?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            QuestActionButton(
+                QuestAction.Add,
+                label = "Crear variante",
+                onClick = {
+                    viewModel.addExerciseVariant(
+                        exerciseBaseId = exerciseBaseId,
+                        name = name,
+                        equipmentType = equipment,
+                        weightComparisonType = weightType,
+                        notes = notes,
+                    )
+                },
             )
             QuestButton("Cancelar", onNavigateBack, action = QuestAction.Back)
         }
